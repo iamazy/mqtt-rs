@@ -1,4 +1,5 @@
 use crate::{Qos, Error};
+use crate::protocol::Protocol;
 
 
 /// Message that the server should publish when the client disconnects
@@ -68,17 +69,27 @@ impl ConnectReturnCode {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Connect {
+    pub protocol: Protocol,
+    pub keep_alive: u16,
+    pub client_id: String,
+    pub clean_session: bool,
+    pub last_will: Option<LastWill>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+}
 
-
-
-
-
-
-
-
-
-
-
+/// Connect acknowledgement
+///
+/// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901074
+pub struct ConnAck {
+    /// Informs the client whether the server is using session state from a previous
+    /// connection for this client id. This allows the client and server to have consistent
+    /// view of the session state
+    pub session_present: bool,
+    pub code: ConnectReturnCode,
+}
 
 
 
