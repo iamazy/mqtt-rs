@@ -1,4 +1,5 @@
 mod packet;
+mod publish;
 mod protocol;
 mod connect;
 mod error;
@@ -35,4 +36,10 @@ impl Qos {
             n => Err(Error::InvalidQos(n)),
         }
     }
+}
+
+/// Reason Code
+trait ReasonCode<R> {
+    fn to_u8(&self) -> u8;
+    fn from_u8(byte: u8) -> Result<R, Error>;
 }
