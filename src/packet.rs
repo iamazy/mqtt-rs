@@ -35,34 +35,34 @@ impl Default for PacketId {
 ///
 /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901022
 pub enum PacketType {
-    /// 0, Client to server, Connection request
+    /// 1, Client to server, Connection request
     CONNECT,
-    /// 1, Server to client, Connect acknowledgement
+    /// 2, Server to client, Connect acknowledgement
     CONNACK,
-    /// 2, Two-way, Publish message
+    /// 3, Two-way, Publish message
     PUBLISH,
-    /// 3, Two-way, Publish acknowledgement (QoS 1)
+    /// 4, Two-way, Publish acknowledgement (QoS 1)
     PUBACK,
-    /// 4, Two-way, Publish received (QoS 2 delivery part 1)
+    /// 5, Two-way, Publish received (QoS 2 delivery part 1)
     PUBREC,
-    /// 5, Two-way, Publish release (QoS 2 delivery part 2)
+    /// 6, Two-way, Publish release (QoS 2 delivery part 2)
     PUBREL,
-    /// 6, Two-way, Publish complete (Qos 2 delivery part 3)
+    /// 7, Two-way, Publish complete (Qos 2 delivery part 3)
     PUBCOMP,
-    /// 7, Client to server, Subscribe request
+    /// 8, Client to server, Subscribe request
     SUBSCRIBE,
-    /// 8, Server to client, Subscribe acknowledgement
+    /// 9, Server to client, Subscribe acknowledgement
     SUBACK,
-    /// 9, Client to server, Unsubscribe request
+    /// 10, Client to server, Unsubscribe request
     UNSUBSCRIBE,
-    /// 10, Server to client, Unsubscribe acknowledgement
+    /// 11, Server to client, Unsubscribe acknowledgement
     UNSUBACK,
-    /// 11, Client to server, Ping request
+    /// 12, Client to server, Ping request
     PINGREQ,
-    /// 12, Server to client, Ping response
+    /// 13, Server to client, Ping response
     PINGRESP,
-    /// 13, Two-way, Disconnect notification
+    /// 14, Two-way, Disconnect notification
     DISCONNECT,
-    /// 14, Two-way, Authentication exchange
+    /// 15, Two-way, Authentication exchange
     AUTH
 }
