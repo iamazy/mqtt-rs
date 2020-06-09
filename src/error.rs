@@ -7,5 +7,5 @@ pub enum Error {
 
     InvalidQos(u8),
 
-    InvalidConnectReturnCode(u8)
+    InvalidReasonCode(u8),
 }
