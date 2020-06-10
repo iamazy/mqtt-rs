@@ -1,4 +1,5 @@
 mod packet;
+mod frame;
 mod publish;
 mod protocol;
 mod connect;
