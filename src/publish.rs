@@ -124,7 +124,7 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
 /// Packet delivery Qos [Quality of Service] level
 ///
 /// [Qos]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901103
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Qos {
     /// Qos value: 0
     AtMostOnce,
