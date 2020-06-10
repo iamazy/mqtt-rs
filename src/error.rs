@@ -8,4 +8,6 @@ pub enum Error {
     InvalidQos(u8),
 
     InvalidReasonCode(u8),
+
+    InvalidHeader,
 }
