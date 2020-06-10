@@ -1,6 +1,6 @@
 use crate::{Error, FromToU8};
 use crate::protocol::Protocol;
-use std::collections::{HashMap, LinkedList};
+use std::collections::LinkedList;
 use crate::publish::Qos;
 
 /// Connect Reason Code
@@ -138,7 +138,7 @@ pub struct Connect {
     /// |  Bit |       7      |      6      |     5     | 4  | 3 |    2    |     1     |    0   |
     /// |      |User Name Flag|Password Flag|Will Retain|Will Qos|Will Flag|Clean Start|Reserved|
     /// |byte 8|      x       |      x      |     x     | x  | x |    x    |     x     |    0   |
-    pub connect_flags: u8,
+    pub connect_flag: ConnectFlag,
     /// [Keep Alive]
     /// position: byte 9 - byte 10
     ///
@@ -150,6 +150,19 @@ pub struct Connect {
     pub keep_alive: u16,
     pub connect_property: ConnectProperty,
     pub connect_payload: ConnectPayload
+}
+
+/// Connect Flag
+///
+/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345323
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectFlag {
+    clean_start: bool,
+    will_flag: bool,
+    will_qos: Qos,
+    will_retain: bool,
+    username_flag: bool,
+    password_flag: bool,
 }
 
 /// CONNECT Properties
