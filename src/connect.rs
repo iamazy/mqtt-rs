@@ -1,29 +1,7 @@
-use crate::{Qos, Error, FromToU8};
+use crate::{Error, FromToU8};
 use crate::protocol::Protocol;
 use std::collections::{HashMap, LinkedList};
 use crate::publish::Qos;
-
-
-/// Message that the server should publish when the client disconnects
-#[derive(Debug, Clone, PartialEq)]
-pub struct LastWill {
-    /// Will Topic
-    ///
-    /// if `Will Flag` is set to 1, `Will Topic` will be the next field in payload.
-    /// `Will Topic` must be a string encoded by `UTF-8`
-    pub topic: String,
-    /// Will Payload
-    ///
-    /// if `Will Flag` is set to 1, `Will Payload` will be the next field in payload.
-    /// `Will Payload` defines the application message that is to be published to the
-    /// `Will Topic`
-    pub payload: Vec<u8>,
-    pub qos: Qos,
-    /// if the `retain` flag is set to 1, in a `PUBLISH` packet sent by client to a server,
-    /// the server must store the application message and its `Qos`, so that it can be delivered
-    /// to future subscribers whose subscriptions match its topic name
-    pub retain: bool,
-}
 
 /// Connect Reason Code
 ///
