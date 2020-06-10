@@ -5,7 +5,7 @@ use crate::Error;
 /// Packet Identifier
 ///
 /// when `Qos == 1 || Qos == 2`, `Packet Identifier` should be present in `PUBLISH` Packet
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketId(NonZeroU16);
 
 impl PacketId {
@@ -65,4 +65,14 @@ pub enum PacketType {
     DISCONNECT,
     /// 15, Two-way, Authentication exchange
     AUTH
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::BytesMut;
+
+    #[test]
+    fn parse_connect_fixed_header() {
+
+    }
 }
