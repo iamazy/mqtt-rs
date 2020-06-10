@@ -1,4 +1,4 @@
-use crate::{ReasonCode, Error};
+use crate::{FromToU8, Error};
 
 /// PUBACK Reason Code
 ///
@@ -29,7 +29,7 @@ pub enum PubAckReasonCode {
 }
 
 
-impl ReasonCode<PubAckReasonCode> for PubAckReasonCode {
+impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
     fn to_u8(&self) -> u8 {
         match *self {
             PubAckReasonCode::Success => 0,
@@ -89,7 +89,7 @@ pub enum PubRecReasonCode {
     PayloadFormatInvalid,
 }
 
-impl ReasonCode<PubRecReasonCode> for PubRecReasonCode {
+impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
     fn to_u8(&self) -> u8 {
         match *self {
             PubRecReasonCode::Success => 0,
@@ -116,6 +116,40 @@ impl ReasonCode<PubRecReasonCode> for PubRecReasonCode {
             151 => Ok(PubRecReasonCode::QuotaExceeded),
             153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
             n => Err(Error::InvalidReasonCode(n))
+        }
+    }
+}
+
+
+/// Packet delivery Qos [Quality of Service] level
+///
+/// [Qos]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901103
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Qos {
+    /// Qos value: 0
+    AtMostOnce,
+    /// Qos value: 1
+    AtLeastOnce,
+    /// Qos value: 2
+    ExactlyOnce,
+}
+
+impl FromToU8<Qos> for Qos {
+
+     fn to_u8(&self) -> u8 {
+        match *self {
+            Qos::AtMostOnce => 0,
+            Qos::AtLeastOnce => 1,
+            Qos::ExactlyOnce => 2
+        }
+    }
+
+    fn from_u8(byte: u8) -> Result<Qos, Error> {
+        match byte {
+            0 => Ok(Qos::AtMostOnce),
+            1 => Ok(Qos::AtLeastOnce),
+            2 => Ok(Qos::ExactlyOnce),
+            n => Err(Error::InvalidQos(n)),
         }
     }
 }
