@@ -1,6 +1,7 @@
-use crate::{Qos, Error, ReasonCode};
+use crate::{Qos, Error, FromToU8};
 use crate::protocol::Protocol;
 use std::collections::{HashMap, LinkedList};
+use crate::publish::Qos;
 
 
 /// Message that the server should publish when the client disconnects
@@ -76,7 +77,7 @@ pub enum ConnectReasonCode {
     ConnectionRateExceeded,
 }
 
-impl ReasonCode<ConnectReasonCode> for ConnectReasonCode {
+impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 
     fn to_u8(&self) -> u8 {
         match *self {
@@ -134,6 +135,9 @@ impl ReasonCode<ConnectReasonCode> for ConnectReasonCode {
     }
 }
 
+/// CONNECT Packet
+///
+/// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
     /// Protocol
@@ -166,35 +170,15 @@ pub struct Connect {
     /// value. If Keep Alive is non-zero and in the absence of sending any other MQTT Control Packets, the Client MUST
     /// send a `PINGREQ` packet
     pub keep_alive: u16,
-    pub client_id: String,
-    /// Clean Start
-    /// position: bit 1 of the Connect Flags byte
-    ///
-    /// Clean Start specifies whether the connection starts a new session or is a
-    /// continuation of an existing session
-    pub clean_start: bool,
-    pub last_will: Option<LastWill>,
-    pub username: Option<String>,
-    pub password: Option<String>,
+    pub connect_property: ConnectProperty,
+    pub connect_payload: ConnectPayload
 }
-
-/// Connect acknowledgement
-///
-/// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901074
-pub struct ConnAck {
-    /// Informs the client whether the server is using session state from a previous
-    /// connection for this client id. This allows the client and server to have consistent
-    /// view of the session state
-    pub session_present: bool,
-    pub code: ConnectReasonCode,
-}
-
 
 /// CONNECT Properties
 ///
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345331
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConnectProperties {
+pub struct ConnectProperty {
     /// Property Length
     ///
     /// The length of the Properties in the `CONNECT` packet Variable Header encoded as a Variable Byte Integer
@@ -202,7 +186,7 @@ pub struct ConnectProperties {
     /// Session Expiry Interval
     ///
     /// unit: seconds
-    session_expiry_interval: usize,
+    session_expiry_interval: Option<usize>,
     /// Receive Maximum
     ///
     /// The Client uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to
@@ -215,7 +199,7 @@ pub struct ConnectProperties {
     /// Representing the Maximum Packet Size the Client is willing to accept. If the Maximum Packet Size is
     /// not present, no limit on the packet size is imposed beyond the limitations in the protocol as a result
     /// of the remaining length encoding and the protocol header sizes
-    maximum_packet_size: usize,
+    maximum_packet_size: Option<usize>,
     /// Topic Alias Maximum
     ///
     /// representing the Topic Alias Maximum value. It is a Protocol Error to include the Topic Alias Maximum
@@ -235,18 +219,18 @@ pub struct ConnectProperties {
     ///
     /// User Property is allowed to appear multiple times to represent multiple name, value pairs. The same
     /// name is allowed to appear more than once
-    user_property: LinkedList<(String, String)>,
+    user_properties: LinkedList<(String, String)>,
     /// Authentication Method
     ///
     /// It's a UTF-8 Encoded String containing the name of the authentication method used for extended
     /// authentication .It is a Protocol Error to include Authentication Method more than once.
     /// If Authentication Method is absent, extended authentication is not performed
-    authentication_method: String,
+    authentication_method: Option<String>,
     /// Authentication Data
     ///
     /// It's a Binary Data containing authentication data. It is a Protocol Error to include Authentication
     /// Data if there is no Authentication Method. It is a Protocol Error to include Authentication Data more than once
-    authentication_data: Vec<u8>,
+    authentication_data: Option<Vec<u8>>,
 }
 
 /// CONNECT Payload
@@ -254,11 +238,16 @@ pub struct ConnectProperties {
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnectPayload {
-    client_id: String,
+    client_id: Option<String>,
+    will_property: Option<WillProperty>,
+    will_topic: Option<String>,
+    will_payload: Option<Vec<u8>>,
+    username: Option<String>,
+    password: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct WillProperties {
+pub struct WillProperty {
     /// Property Length
     ///
     /// The length of the Properties in the Will Properties encoded as a Variable Byte Integer.
@@ -267,6 +256,37 @@ pub struct WillProperties {
     ///
     /// unit: seconds
     will_delay_interval: usize,
+    /// Payload Format Indicator
+    ///
+    /// 0 (0x00) Byte Indicates that the Will Message is unspecified bytes,
+    ///   which is equivalent to not sending a Payload Format Indicator.
+    /// 1 (0x01) Byte Indicates that the Will Message is UTF-8 Encoded Character Data.
+    ///   The UTF-8 data in the Payload MUST be well-formed UTF-8 as defined by the [Unicode specification] and restated in [RFC 3629]
+    payload_format_indicator: u8,
+    /// Message Expiry Interval
+    ///
+    /// If present, the Four Byte value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
+    /// If absent, no Message Expiry Interval is sent when the Server publishes the Will Message.
+    message_expiry_interval: Option<usize>,
+    /// Content Type
+    ///
+    /// It's a UTF-8 Encoded String describing the content of the Will Message, The value of the
+    /// Content Type is defined by the sending and receiving application.
+    content_type: String,
+    /// Response Topic
+    ///
+    /// The presence of a Response Topic identifies the Will Message as a Request.
+    response_topic: Option<String>,
+    /// Correlation Data
+    ///
+    /// The Correlation Data is used by the sender of the Request Message to identify which request the Response Message is for when it is received.
+    /// If the Correlation Data is not present, the Requester does not require any correlation data.
+    correlation_data: Option<Vec<u8>>,
+    /// User Properties
+    ///
+    /// The User Property is allowed to appear multiple times to represent multiple name, value pairs. The same name is allowed to appear more than once.
+    user_properties: LinkedList<(String,String)>
+
 }
 
 
