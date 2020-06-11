@@ -5,6 +5,7 @@ mod protocol;
 mod connect;
 mod connack;
 mod error;
+mod decoder;
 pub use error::Error;
 
 trait FromToU8<R> {

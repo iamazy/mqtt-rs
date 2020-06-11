@@ -10,4 +10,8 @@ pub enum Error {
     InvalidReasonCode(u8),
 
     InvalidHeader,
+
+    InvalidLength,
+
+    InvalidString(String)
 }

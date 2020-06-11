@@ -34,6 +34,7 @@ impl Default for PacketId {
 /// Position: 1byte, bits 7-4
 ///
 /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901022
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PacketType {
     /// 1, Client to server, Connection request
     CONNECT,
@@ -69,7 +70,6 @@ pub enum PacketType {
 
 #[cfg(test)]
 mod test {
-    use bytes::BytesMut;
 
     #[test]
     fn parse_connect_fixed_header() {

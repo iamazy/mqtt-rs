@@ -1,8 +1,12 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
 use crate::{Error, FromToU8};
+use bytes::{BufMut, BytesMut};
+use byteorder::{BigEndian, ReadBytesExt};
+use std::io::Cursor;
 
-pub struct Header {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FixedHeader {
     packet_type: PacketType,
     dup: bool,
     qos: Qos,
@@ -10,12 +14,12 @@ pub struct Header {
     remaining_length: usize
 }
 
-impl Header {
+impl FixedHeader {
 
     /// Packet Type
     ///
     /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901023
-    pub fn new(head: u8, remaining_length: u8) -> Result<Header, Error> {
+    pub fn new(head: u8, remaining_length: u8) -> Result<FixedHeader, Error> {
         let (packet_type, valid_flag) = match head >> 4 {
             1 => (PacketType::CONNECT, head & 0b1111 == 0),
             2 => (PacketType::CONNACK, head & 0b1111 == 0),
@@ -37,7 +41,7 @@ impl Header {
         if !valid_flag {
             return Err(Error::InvalidHeader);
         }
-        Ok(Header {
+        Ok(FixedHeader {
             packet_type,
             // https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901102
             dup: head & 0b1000 != 0,
@@ -55,10 +59,13 @@ impl Header {
 
 #[cfg(test)]
 mod test {
+    use crate::frame::FixedHeader;
 
     #[test]
     fn test_header() {
-        println!("{:?}", 0b1000_0000 >> 4);
+        let pair = (0b00110000 as u8, 0b00100000 as u8);
+        let fixed_header = FixedHeader::new(pair.0, pair.1).unwrap();
+        println!("{:?}", fixed_header);
 
     }
 }
