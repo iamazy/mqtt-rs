@@ -44,7 +44,8 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod test {
-    use bytes::Buf;
+    use bytes::{Buf};
+    use crate::decoder::read_bytes;
 
     #[test]
     fn test_decode() {
@@ -52,11 +53,12 @@ mod test {
 
         let mut buf = BytesMut::with_capacity(64);
 
-        buf.put_u8(b'h');
-        buf.put_u8(b'e');
-        buf.put(&b"llo"[..]);
+        buf.put_slice(&[0u8,4u8,'M' as u8,'Q' as u8,'T' as u8,'T' as u8,5u8,0,1,1,0,1,0,1,0,1,0,1,0,1,0,1,01,10,1,10,1,0,0,1,0,1]);
 
-        println!("{}", buf.get_u8() as char);
+        println!("{}", buf.get_u8());
         println!("{:?}", buf.remaining());
+
+        let vec = read_bytes(&mut buf);
+        println!("{:?}", vec);
     }
 }

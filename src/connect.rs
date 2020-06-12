@@ -1,7 +1,8 @@
-use crate::{Error, FromToU8};
+use crate::{Error, FromToU8, FromToBuf};
 use crate::protocol::Protocol;
 use std::collections::LinkedList;
 use crate::publish::Qos;
+use bytes::{BytesMut, BufMut};
 
 /// Connect Reason Code
 ///
@@ -281,6 +282,17 @@ pub struct WillProperty {
 }
 
 
+impl FromToBuf<Connect> for Connect {
+
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
+        unimplemented!()
+    }
+}
 
 
 
