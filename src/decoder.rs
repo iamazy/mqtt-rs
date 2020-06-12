@@ -16,10 +16,6 @@ fn read_header(buf: &mut BytesMut) -> Result<Option<FixedHeader>, Error> {
             // in the representation. Thus, each byte encodes 128 values (0-127) and a "continuation bit"
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
-                if buf.remaining() < 2 + pos + len {
-                    // Won't be able to read full packet
-                    return Ok(None);
-                }
                 let header = FixedHeader::new(buf.get_u8(), len)?;
                 // reset buf start position to (pos + 1)
                 buf.advance(pos + 1);
