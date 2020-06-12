@@ -11,6 +11,10 @@ pub struct FixedHeader {
     dup: bool,
     qos: Qos,
     retain: bool,
+    /// Variable Byte Integer type,
+    ///
+    /// The maximum number of bytes in the Variable Byte Integer field is four.
+    /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345296
     remaining_length: usize
 }
 
@@ -19,7 +23,7 @@ impl FixedHeader {
     /// Packet Type
     ///
     /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901023
-    pub fn new(head: u8, remaining_length: u8) -> Result<FixedHeader, Error> {
+    pub fn new(head: u8, remaining_length: usize) -> Result<FixedHeader, Error> {
         let (packet_type, valid_flag) = match head >> 4 {
             1 => (PacketType::CONNECT, head & 0b1111 == 0),
             2 => (PacketType::CONNACK, head & 0b1111 == 0),
@@ -52,7 +56,7 @@ impl FixedHeader {
             /// Remaining Length
             ///
             /// This is the length of Variable Header plus the length of the Payload, encoded as a Variable Byte Integer
-            remaining_length: remaining_length as usize
+            remaining_length: remaining_length
         })
     }
 }
@@ -63,7 +67,7 @@ mod test {
 
     #[test]
     fn test_header() {
-        let pair = (0b00110000 as u8, 0b00100000 as u8);
+        let pair = (0b00110000 as u8, 0b00100000);
         let fixed_header = FixedHeader::new(pair.0, pair.1).unwrap();
         println!("{:?}", fixed_header);
 
