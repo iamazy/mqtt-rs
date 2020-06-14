@@ -56,7 +56,7 @@ impl FixedHeader {
             /// Remaining Length
             ///
             /// This is the length of Variable Header plus the length of the Payload, encoded as a Variable Byte Integer
-            remaining_length: remaining_length
+            remaining_length
         })
     }
 }

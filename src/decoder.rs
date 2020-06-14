@@ -1,6 +1,7 @@
 use crate::Error;
 use bytes::{BytesMut, Buf};
 use crate::frame::FixedHeader;
+use std::collections::LinkedList;
 
 /// Parse Fixed Header
 ///
@@ -42,20 +43,26 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 }
 
 
+
+pub fn read_user_properties(buf: &mut BytesMut) -> Result<LinkedList<(String, String)>, Error> {
+    let user_properties = LinkedList::<(String, String)>::new();
+}
+
+
 #[cfg(test)]
 mod test {
-    use bytes::{Buf};
-    use crate::decoder::read_bytes;
-
+    use bytes::{Buf, BytesMut};
+    use crate::decoder::{read_bytes, read_header};
+    use crate::{Error};
     #[test]
     fn test_decode() {
         use bytes::{BytesMut, BufMut};
 
         let mut buf = BytesMut::with_capacity(64);
 
-        buf.put_slice(&[0u8,4u8,'M' as u8,'Q' as u8,'T' as u8,'T' as u8,5u8,0,1,1,0,1,0,1,0,1,0,1,0,1,0,1,01,10,1,10,1,0,0,1,0,1]);
+        buf.put_slice(&[4u8,4u8,'M' as u8,'Q' as u8,'T' as u8,'T' as u8,5u8]);
 
-        println!("{}", buf.get_u8());
+        println!("{}", buf.get_u16() as i32);
         println!("{:?}", buf.remaining());
 
         let vec = read_bytes(&mut buf);

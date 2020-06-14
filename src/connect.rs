@@ -2,7 +2,8 @@ use crate::{Error, FromToU8, FromToBuf};
 use crate::protocol::Protocol;
 use std::collections::LinkedList;
 use crate::publish::Qos;
-use bytes::{BytesMut, BufMut};
+use bytes::{BytesMut, BufMut, Buf};
+use crate::decoder::read_string;
 
 /// Connect Reason Code
 ///
@@ -118,7 +119,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 ///
 /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
 #[derive(Debug, Clone, PartialEq)]
-pub struct Connect {
+pub struct ConnectVariableHeader {
     /// Protocol
     ///
     /// [Protocol Name] is a UTF-8 Encoded String that represents the protocol name 'MQTT', The string's `offset`
@@ -149,8 +150,7 @@ pub struct Connect {
     /// value. If Keep Alive is non-zero and in the absence of sending any other MQTT Control Packets, the Client MUST
     /// send a `PINGREQ` packet
     pub keep_alive: u16,
-    pub connect_property: ConnectProperty,
-    pub connect_payload: ConnectPayload
+    pub connect_property: ConnectProperty
 }
 
 /// Connect Flag
@@ -282,19 +282,103 @@ pub struct WillProperty {
 }
 
 
-impl FromToBuf<Connect> for Connect {
+impl FromToBuf<ConnectVariableHeader> for Connect {
 
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
 
-    fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectVariableHeader>, Error> {
+        let protocol_name = read_string(buf)?;
+        let protocol_level = buf.get_u8();
+        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+        let connect_flags = ConnectFlag::from_buf(buf);
+        let keep_alive = buf.get_u16();
         unimplemented!()
+
     }
 }
 
+impl FromToBuf<ConnectFlag> for ConnectFlag {
 
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut connect_flags = 0b0000_0000;
+        if self.clean_start {
+            connect_flags |= 0b0000_0010;
+        }
+        if self.will_flag {
+            connect_flags |= 0b0000_0100;
+        }
+        connect_flags |= self.will_qos.to_u8();
+        if self.will_retain {
+            connect_flags |= 0b0010_0000;
+        }
+        if self.password_flag {
+            connect_flags |= 0b0100_0000;
+        }
+        if self.username_flag {
+            connect_flags |= 0b1000_0000;
+        }
+        buf.put_u8(connect_flags);
+        Ok(connect_flags as usize)
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectFlag>, Error> {
+        let connect_flags = buf.get_u8();
+        let clean_start = (connect_flags >> 1) & 0x01 > 0;
+        let will_flag = (connect_flags >> 2) & 0x01 > 0;
+        let will_qos = Qos::from_u8((connect_flags >> 3) & 0x03).unwrap();
+        let will_retain = (connect_flags >> 5) & 0x01 > 0;
+        let password_flag = (connect_flags >> 6) & 0x01 > 0;
+        let username_flag = (connect_flags >> 7) & 0x01 > 0;
+        Ok(Some(ConnectFlag {
+            clean_start,
+            will_flag,
+            will_qos,
+            will_retain,
+            password_flag,
+            username_flag
+        }))
+    }
+}
+
+impl FromToBuf<ConnectProperty> for ConnectProperty {
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectProperty>, Error> {
+        let mut len: usize = 0;
+        for pos in 0..=3 {
+            if let Some(&byte) = buf.get(pos + 1) {
+                len += (byte as usize & 0x7F) << (pos * 7);
+                if (byte & 0x80) == 0 {
+                    break;
+                }
+            }
+        }
+        let session_expiry_interval = buf.get_u32() as usize;
+        let receive_maximum = buf.get_u16();
+        let maximum_packet_size = buf.get_u32();
+        let topic_alias_maximum = buf.get_u16();
+        let request_response_information = buf.get_u8();
+        let request_problem_information = buf.get_u8();
+
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test() {
+        let num = 1 >> 1;
+
+        println!("{:?}", num);
+    }
+}
 
 
 

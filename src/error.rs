@@ -13,5 +13,7 @@ pub enum Error {
 
     InvalidLength,
 
-    InvalidString(String)
+    InvalidString(String),
+
+    InvalidPropertyType
 }
