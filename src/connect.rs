@@ -4,7 +4,7 @@ use std::collections::LinkedList;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::PropertyType;
-use crate::decoder::{read_string, read_variable_byte_integer};
+use crate::decoder::{read_string, read_variable_byte_integer, read_bytes};
 
 /// Connect Reason Code
 ///
@@ -154,6 +154,24 @@ pub struct ConnectVariableHeader {
     pub connect_property: ConnectProperty
 }
 
+impl FromToBuf<ConnectVariableHeader> for Connect {
+
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectVariableHeader>, Error> {
+        let protocol_name = read_string(buf)?;
+        let protocol_level = buf.get_u8();
+        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+        let connect_flags = ConnectFlag::from_buf(buf);
+        let keep_alive = buf.get_u16();
+        unimplemented!()
+
+    }
+}
+
 /// Connect Flag
 ///
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345323
@@ -179,7 +197,7 @@ pub struct ConnectProperty {
     /// Session Expiry Interval
     ///
     /// unit: seconds
-    session_expiry_interval: Option<u32>,
+    session_expiry_interval: Option<usize>,
     /// Receive Maximum
     ///
     /// The Client uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to
@@ -192,7 +210,7 @@ pub struct ConnectProperty {
     /// Representing the Maximum Packet Size the Client is willing to accept. If the Maximum Packet Size is
     /// not present, no limit on the packet size is imposed beyond the limitations in the protocol as a result
     /// of the remaining length encoding and the protocol header sizes
-    maximum_packet_size: Option<u32>,
+    maximum_packet_size: Option<usize>,
     /// Topic Alias Maximum
     ///
     /// representing the Topic Alias Maximum value. It is a Protocol Error to include the Topic Alias Maximum
@@ -281,7 +299,20 @@ impl FromToBuf<ConnectPayload> for ConnectPayload {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectPayload>, Error> {
-        unimplemented!()
+        let client_id = read_string(buf).unwrap();
+        let will_property = WillProperty::from_buf(buf).unwrap().unwrap();
+        let will_topic = read_string(buf).unwrap();
+        let will_payload = read_bytes(buf).unwrap();
+        let username = read_string(buf).unwrap();
+        let password = read_string(buf).unwrap();
+        Ok(Some(ConnectPayload {
+            client_id,
+            will_property: Some(will_property),
+            will_topic: Some(will_topic),
+            will_payload: Some(will_payload),
+            username: Some(username),
+            password: Some(password)
+        }))
     }
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -293,7 +324,7 @@ pub struct WillProperty {
     /// Will Delay Interval
     ///
     /// unit: seconds
-    will_delay_interval: u32,
+    will_delay_interval: usize,
     /// Payload Format Indicator
     ///
     /// 0 (0x00) Byte Indicates that the Will Message is unspecified bytes,
@@ -305,7 +336,7 @@ pub struct WillProperty {
     ///
     /// If present, the Four Byte value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
     /// If absent, no Message Expiry Interval is sent when the Server publishes the Will Message.
-    message_expiry_interval: Option<u32>,
+    message_expiry_interval: Option<usize>,
     /// Content Type
     ///
     /// It's a UTF-8 Encoded String describing the content of the Will Message, The value of the
@@ -357,7 +388,7 @@ impl FromToBuf<WillProperty> for WillProperty {
             let property_id = read_variable_byte_integer(buf).unwrap();
             match property_id {
                 0x18 => {
-                    will_property.will_delay_interval = buf.get_u32();
+                    will_property.will_delay_interval = buf.get_u32() as usize;
                     prop_len += 4;
                 },
                 0x01 => {
@@ -365,7 +396,7 @@ impl FromToBuf<WillProperty> for WillProperty {
                     prop_len += 1;
                 },
                 0x02 => {
-                    will_property.message_expiry_interval = Some(buf.get_u32());
+                    will_property.message_expiry_interval = Some(buf.get_u32() as usize);
                     prop_len += 4;
                 },
                 0x03 => {
@@ -387,25 +418,6 @@ impl FromToBuf<WillProperty> for WillProperty {
             }
         }
         return Ok(Some(will_property))
-
-    }
-}
-
-
-impl FromToBuf<ConnectVariableHeader> for Connect {
-
-
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
-    }
-
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectVariableHeader>, Error> {
-        let protocol_name = read_string(buf)?;
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
-        let connect_flags = ConnectFlag::from_buf(buf);
-        let keep_alive = buf.get_u16();
-        unimplemented!()
 
     }
 }
@@ -467,7 +479,7 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
             let property_id = read_variable_byte_integer(buf).unwrap();
             match property_id {
                 0x11 => {
-                    connect_property.session_expiry_interval = Some(buf.get_u32());
+                    connect_property.session_expiry_interval = Some(buf.get_u32() as usize);
                     prop_len += 4;
                 },
                 0x21 => {
@@ -475,7 +487,7 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
                     prop_len += 2;
                 },
                 0x27 => {
-                    connect_property.maximum_packet_size = Some(buf.get_u32());
+                    connect_property.maximum_packet_size = Some(buf.get_u32() as usize);
                     prop_len += 4;
                 },
                 0x22 => {

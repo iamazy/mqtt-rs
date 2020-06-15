@@ -8,6 +8,8 @@ mod error;
 mod decoder;
 pub use error::Error;
 use bytes::{BufMut, BytesMut};
+use crate::packet::PacketType;
+use crate::publish::Qos;
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -19,6 +21,14 @@ trait FromToBuf<R> {
     fn from_buf(buf: &mut BytesMut) -> Result<Option<R>, Error>;
 }
 
+
+pub struct FixedHeader {
+    packet_type: PacketType,
+    is_dup: bool,
+    qos: Qos,
+    is_retain: bool,
+    remaining_length: usize
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PropertyType {
