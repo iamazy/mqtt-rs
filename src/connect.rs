@@ -3,7 +3,8 @@ use crate::protocol::Protocol;
 use std::collections::LinkedList;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
-use crate::decoder::read_string;
+use crate::PropertyType;
+use crate::decoder::{read_string, read_variable_byte_integer};
 
 /// Connect Reason Code
 ///
@@ -174,29 +175,29 @@ pub struct ConnectProperty {
     /// Property Length
     ///
     /// The length of the Properties in the `CONNECT` packet Variable Header encoded as a Variable Byte Integer
-    property_length: i32,
+    property_length: usize,
     /// Session Expiry Interval
     ///
     /// unit: seconds
-    session_expiry_interval: Option<usize>,
+    session_expiry_interval: Option<u32>,
     /// Receive Maximum
     ///
     /// The Client uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to
     /// process concurrently. There is no mechanism to limit the QoS 0 publications that the Server might try
     /// to send.The value of Receive Maximum applies only to the current Network Connection. If the Receive
     /// Maximum value is absent then its value defaults to 65,535.
-    receive_maximum: usize,
+    receive_maximum: u16,
     /// Maximum Packet Size
     ///
     /// Representing the Maximum Packet Size the Client is willing to accept. If the Maximum Packet Size is
     /// not present, no limit on the packet size is imposed beyond the limitations in the protocol as a result
     /// of the remaining length encoding and the protocol header sizes
-    maximum_packet_size: Option<usize>,
+    maximum_packet_size: Option<u32>,
     /// Topic Alias Maximum
     ///
     /// representing the Topic Alias Maximum value. It is a Protocol Error to include the Topic Alias Maximum
     /// value more than once. If the Topic Alias Maximum property is absent, the default value is 0.
-    topic_alias_maximum: usize,
+    topic_alias_maximum: u16,
     /// Request Response Information
     ///
     /// It is Protocol Error to include the Request Response Information more than once, or to have a value
@@ -225,6 +226,24 @@ pub struct ConnectProperty {
     authentication_data: Option<Vec<u8>>,
 }
 
+impl ConnectProperty {
+
+    fn new() -> ConnectProperty {
+        ConnectProperty {
+            property_length: 0,
+            session_expiry_interval: None,
+            receive_maximum: 0,
+            maximum_packet_size: None,
+            topic_alias_maximum: 0,
+            request_response_information: false,
+            request_problem_information: false,
+            user_properties: LinkedList::<(String, String)>::new(),
+            authentication_method: None,
+            authentication_data: None
+        }
+    }
+}
+
 /// CONNECT Payload
 ///
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
@@ -243,7 +262,7 @@ pub struct WillProperty {
     /// Property Length
     ///
     /// The length of the Properties in the Will Properties encoded as a Variable Byte Integer.
-    property_length: i32,
+    property_length: usize,
     /// Will Delay Interval
     ///
     /// unit: seconds
@@ -350,22 +369,59 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectProperty>, Error> {
-        let mut len: usize = 0;
-        for pos in 0..=3 {
-            if let Some(&byte) = buf.get(pos + 1) {
-                len += (byte as usize & 0x7F) << (pos * 7);
-                if (byte & 0x80) == 0 {
-                    break;
+        let mut property_length = read_variable_byte_integer(buf).unwrap();
+        let mut prop_len: usize = 0;
+        let mut connect_property = ConnectProperty::new();
+        while property_length > prop_len {
+            let property_id = read_variable_byte_integer(buf).unwrap();
+            match property_id {
+                0x11 => {
+                    connect_property.session_expiry_interval = Some(buf.get_u32());
+                    prop_len += 4;
+                },
+                0x21 => {
+                    connect_property.receive_maximum = buf.get_u16();
+                    prop_len += 2;
+                },
+                0x27 => {
+                    connect_property.maximum_packet_size = Some(buf.get_u32());
+                    prop_len += 4;
+                },
+                0x22 => {
+                    connect_property.topic_alias_maximum = buf.get_u16();
+                    prop_len += 2;
+                },
+                0x19 => {
+                    connect_property.request_response_information = buf.get_u8() & 0x01 == 1;
+                    prop_len += 1;
+                },
+                0x17 => {
+                    connect_property.request_problem_information = buf.get_u8() & 0x01 == 1;
+                    prop_len += 1;
+                },
+                0x26 => {
+                    let name = read_string(buf).unwrap();
+                    let value = read_string(buf).unwrap();
+                    prop_len += name.into_bytes().len();
+                    prop_len += value.into_bytes().len();
+                    connect_property.user_properties.push_back((name, value));
+                },
+                0x15 => {
+                    let authentication_method = read_string(buf).unwrap();
+                    prop_len += authentication_method.into_bytes().len();
+                    connect_property.authentication_method = Some(authentication_method);
+                },
+                0x16 => {
+                    let data = buf.to_vec();
+                    prop_len += data.len();
+                    connect_property.authentication_data = Some(data);
+                },
+                _ => {
+                    return Err(Error::InvalidPropertyType);
                 }
             }
         }
-        let session_expiry_interval = buf.get_u32() as usize;
-        let receive_maximum = buf.get_u16();
-        let maximum_packet_size = buf.get_u32();
-        let topic_alias_maximum = buf.get_u16();
-        let request_response_information = buf.get_u8();
-        let request_problem_information = buf.get_u8();
-
+        Ok(Some(connect_property))
     }
 }
 
