@@ -249,7 +249,10 @@ impl ConnectProperty {
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnectPayload {
-    client_id: Option<String>,
+    /// The Client Identifier (ClientID) identifies the Client to the Server. Each Client connecting
+    /// to the Server has a unique ClientID. The ClientID MUST be used by Clients and by Servers to
+    /// identify state that they hold relating to this MQTT Session between the Client and the Server
+    client_id: String,
     will_property: Option<WillProperty>,
     will_topic: Option<String>,
     will_payload: Option<Vec<u8>>,
@@ -257,6 +260,30 @@ pub struct ConnectPayload {
     password: Option<String>,
 }
 
+impl ConnectPayload {
+
+    fn new() -> ConnectPayload {
+        ConnectPayload {
+            client_id: String::default(),
+            will_property: None,
+            will_topic: None,
+            will_payload: None,
+            username: None,
+            password: None,
+        }
+    }
+}
+
+impl FromToBuf<ConnectPayload> for ConnectPayload {
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectPayload>, Error> {
+        unimplemented!()
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub struct WillProperty {
     /// Property Length
@@ -266,19 +293,19 @@ pub struct WillProperty {
     /// Will Delay Interval
     ///
     /// unit: seconds
-    will_delay_interval: usize,
+    will_delay_interval: u32,
     /// Payload Format Indicator
     ///
     /// 0 (0x00) Byte Indicates that the Will Message is unspecified bytes,
     ///   which is equivalent to not sending a Payload Format Indicator.
     /// 1 (0x01) Byte Indicates that the Will Message is UTF-8 Encoded Character Data.
     ///   The UTF-8 data in the Payload MUST be well-formed UTF-8 as defined by the [Unicode specification] and restated in [RFC 3629]
-    payload_format_indicator: u8,
+    payload_format_indicator: bool,
     /// Message Expiry Interval
     ///
     /// If present, the Four Byte value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
     /// If absent, no Message Expiry Interval is sent when the Server publishes the Will Message.
-    message_expiry_interval: Option<usize>,
+    message_expiry_interval: Option<u32>,
     /// Content Type
     ///
     /// It's a UTF-8 Encoded String describing the content of the Will Message, The value of the
@@ -297,7 +324,71 @@ pub struct WillProperty {
     ///
     /// The User Property is allowed to appear multiple times to represent multiple name, value pairs. The same name is allowed to appear more than once.
     user_properties: LinkedList<(String,String)>
+}
 
+impl WillProperty {
+
+    fn new() -> WillProperty {
+        WillProperty {
+            property_length: 0,
+            will_delay_interval: 0,
+            payload_format_indicator: false,
+            message_expiry_interval: Some(0),
+            content_type: String::default(),
+            response_topic: None,
+            correlation_data: None,
+            user_properties: LinkedList::new()
+        }
+    }
+}
+
+impl FromToBuf<WillProperty> for WillProperty {
+
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<WillProperty>, Error> {
+        let property_length = read_variable_byte_integer(buf);
+        let mut prop_len: usize = 0;
+        let mut will_property = WillProperty::new();
+        while property_length > prop_len {
+            let property_id = read_variable_byte_integer(buf).unwrap();
+            match property_id {
+                0x18 => {
+                    will_property.will_delay_interval = buf.get_u32();
+                    prop_len += 4;
+                },
+                0x01 => {
+                    will_property.payload_format_indicator = buf.get_u8() & 0x01 == 1;
+                    prop_len += 1;
+                },
+                0x02 => {
+                    will_property.message_expiry_interval = Some(buf.get_u32());
+                    prop_len += 4;
+                },
+                0x03 => {
+                    will_property.content_type = read_string(buf).unwrap();
+                    prop_len += will_property.content_type.into_bytes().len();
+                },
+                0x08 => {
+                    let response_topic = read_string(buf).unwrap();
+                    prop_len += response_topic.into_bytes().len();
+                    will_property.response_topic = Some(response_topic);
+                },
+                0x09 => {
+                    let length = buf.get_u16() as usize;
+                    let data  = buf.split_to(length);
+                    will_property.correlation_data = Some(data.to_vec());
+                    prop_len += length;
+                },
+                _ => return Err(Error::InvalidPropertyType)
+            }
+        }
+        return Ok(Some(will_property))
+
+    }
 }
 
 
@@ -412,9 +503,10 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
                     connect_property.authentication_method = Some(authentication_method);
                 },
                 0x16 => {
-                    let data = buf.to_vec();
-                    prop_len += data.len();
-                    connect_property.authentication_data = Some(data);
+                    let length = buf.get_u16() as usize;
+                    let data = buf.split_to(length);
+                    connect_property.authentication_data = Some(data.to_vec());
+                    prop_len += length;
                 },
                 _ => {
                     return Err(Error::InvalidPropertyType);
