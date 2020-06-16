@@ -5,114 +5,43 @@ use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::PropertyType;
 use crate::decoder::{read_string, read_variable_byte_integer, read_bytes};
+use crate::frame::FixedHeader;
+use crate::packet::PacketType;
 
-/// Connect Reason Code
-///
-/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345364
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ConnectReasonCode {
-    /// 0[0x00], Connection accepted
-    Success,
-    /// 128[0x80], The Server does not wish to reveal the reason for the failure,
-    /// or none of the other Reason Codes apply.
-    UnspecifiedError,
-    /// 129[0x81], Data within the `CONNECT` packet could not be correctly parsed
-    MalformedPacket,
-    /// 130[0x82], Data in the `CONNECT` packet does not conform to this specification
-    ProtocolError,
-    /// 131[0x83], The `CONNECT` is valid but is not accepted by this Server
-    ImplementationSpecificError,
-    /// 132[0x84], The Server does not support the version of the MQTT protocol requested by the Client.
-    UnsupportedProtocolVersion,
-    /// 133[0x85], The Client Identifier is a valid string but is not allowed by the Server
-    ClientIdentifierNotValid,
-    /// 134[0x86], The Server does not accept the User Name or Password specified by the Client
-    BadUsernameOrPassword,
-    /// 135[0x87], The Client is not authorized to connect
-    NotAuthorized,
-    /// 136[0x88], The MQTT Server is not available
-    ServerUnavailable,
-    /// 137[0x89], The Server is busy. Try again later
-    ServerBusy,
-    /// 138[0x8A], This Client has been banned by administrative action. Contact the server administrator
-    Banned,
-    /// 140[0x8C], The authentication method is not supported or does not match the authentication method currently in use
-    BadAuthenticationMethod,
-    /// 144[0x90], The Will Topic Name is not malformed, but is not accepted by this Server
-    TopicNameInvalid,
-    /// 149[0x95], The `CONNECT` packet exceeded the maximum permissible size
-    PacketTooLarge,
-    /// 151[0x97], An implementation or administrative imposed limit has been exceeded
-    QuotaExceeded,
-    /// 153[0x99], The Will Payload does not match the specified Payload Format Indicator
-    PayloadFormatInvalid,
-    /// 154[0x9A], The Server does not support retained messages, and Will Retain was set to 1
-    RetainNotSupported,
-    /// 155[0x9B], The Server does not support the QoS set in Will QoS
-    QoSNotSupported,
-    /// 156[0x9C], The Client should temporarily use another server
-    UseAnotherServer,
-    /// 157[0x9D], The Client should permanently use another server
-    ServerMoved,
-    /// 159[0x9F], The connection rate limit has been exceeded
-    ConnectionRateExceeded,
+
+pub struct Connect {
+    fixed_header: FixedHeader,
+    variable_header: ConnectVariableHeader,
+    payload: ConnectPayload,
 }
 
-impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
-
-    fn to_u8(&self) -> u8 {
-        match *self {
-            ConnectReasonCode::Success => 0,
-            ConnectReasonCode::UnspecifiedError => 128,
-            ConnectReasonCode::MalformedPacket => 129,
-            ConnectReasonCode::ProtocolError => 130,
-            ConnectReasonCode::ImplementationSpecificError => 131,
-            ConnectReasonCode::UnsupportedProtocolVersion => 132,
-            ConnectReasonCode::ClientIdentifierNotValid => 133,
-            ConnectReasonCode::BadUsernameOrPassword => 134,
-            ConnectReasonCode::NotAuthorized => 135,
-            ConnectReasonCode::ServerUnavailable => 136,
-            ConnectReasonCode::ServerBusy => 137,
-            ConnectReasonCode::Banned => 138,
-            ConnectReasonCode::BadAuthenticationMethod => 140,
-            ConnectReasonCode::TopicNameInvalid => 144,
-            ConnectReasonCode::PacketTooLarge => 149,
-            ConnectReasonCode::QuotaExceeded => 151,
-            ConnectReasonCode::PayloadFormatInvalid => 153,
-            ConnectReasonCode::RetainNotSupported => 154,
-            ConnectReasonCode::QoSNotSupported => 155,
-            ConnectReasonCode::UseAnotherServer => 156,
-            ConnectReasonCode::ServerMoved => 157,
-            ConnectReasonCode::ConnectionRateExceeded => 159
-        }
+impl FromToBuf<Connect> for Connect{
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        unimplemented!()
     }
 
-    fn from_u8(byte: u8) -> Result<ConnectReasonCode, Error> {
-        match byte {
-            0 => Ok(ConnectReasonCode::Success),
-            128 => Ok(ConnectReasonCode::UnspecifiedError),
-            129 => Ok(ConnectReasonCode::MalformedPacket),
-            130 => Ok(ConnectReasonCode::ProtocolError),
-            131 => Ok(ConnectReasonCode::ImplementationSpecificError),
-            132 => Ok(ConnectReasonCode::UnsupportedProtocolVersion),
-            133 => Ok(ConnectReasonCode::ClientIdentifierNotValid),
-            134 => Ok(ConnectReasonCode::BadUsernameOrPassword),
-            135 => Ok(ConnectReasonCode::NotAuthorized),
-            136 => Ok(ConnectReasonCode::ServerUnavailable),
-            137 => Ok(ConnectReasonCode::ServerBusy),
-            138 => Ok(ConnectReasonCode::Banned),
-            140 => Ok(ConnectReasonCode::BadAuthenticationMethod),
-            144 => Ok(ConnectReasonCode::TopicNameInvalid),
-            149 => Ok(ConnectReasonCode::PacketTooLarge),
-            151 => Ok(ConnectReasonCode::QuotaExceeded),
-            153 => Ok(ConnectReasonCode::PayloadFormatInvalid),
-            154 => Ok(ConnectReasonCode::RetainNotSupported),
-            155 => Ok(ConnectReasonCode::QoSNotSupported),
-            156 => Ok(ConnectReasonCode::UseAnotherServer),
-            157 => Ok(ConnectReasonCode::ServerMoved),
-            159 => Ok(ConnectReasonCode::ConnectionRateExceeded),
-            n => Err(Error::InvalidReasonCode(n))
-        }
+    fn from_buf(buf: &mut BytesMut) -> Result<Option<Connect>, Error> {
+        // parse fixed header
+        let fixed_header_buf = buf.get_u8();
+        let packet_type = PacketType::from_u8(fixed_header_buf >> 4).unwrap();
+        let fixed_header_remaining_length = read_variable_byte_integer(buf).unwrap();
+        let fixed_header = FixedHeader {
+            packet_type,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: fixed_header_remaining_length
+        };
+
+        // parse variable header
+        let protocol_name = read_string(buf)?;
+        let protocol_level = buf.get_u8();
+        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
+        let connect_flags = ConnectFlag::from_buf(buf)?.expect("Connect Flag can not be None, Please check it.");
+        let keep_alive = buf.get_u16() as usize;
+
+        // parse connect properties
+        let connect_property = ConnectProperty::from_buf(buf).unwrap().unwrap();
     }
 }
 
@@ -150,26 +79,8 @@ pub struct ConnectVariableHeader {
     /// the Client to ensure that the interval between MQTT Control Packets being sent does not exceed the Keep Alive
     /// value. If Keep Alive is non-zero and in the absence of sending any other MQTT Control Packets, the Client MUST
     /// send a `PINGREQ` packet
-    pub keep_alive: u16,
+    pub keep_alive: usize,
     pub connect_property: ConnectProperty
-}
-
-impl FromToBuf<ConnectVariableHeader> for Connect {
-
-
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
-    }
-
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectVariableHeader>, Error> {
-        let protocol_name = read_string(buf)?;
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
-        let connect_flags = ConnectFlag::from_buf(buf);
-        let keep_alive = buf.get_u16();
-        unimplemented!()
-
-    }
 }
 
 /// Connect Flag
@@ -381,7 +292,7 @@ impl FromToBuf<WillProperty> for WillProperty {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Option<WillProperty>, Error> {
-        let property_length = read_variable_byte_integer(buf);
+        let property_length = read_variable_byte_integer(buf).unwrap();
         let mut prop_len: usize = 0;
         let mut will_property = WillProperty::new();
         while property_length > prop_len {
@@ -401,11 +312,11 @@ impl FromToBuf<WillProperty> for WillProperty {
                 },
                 0x03 => {
                     will_property.content_type = read_string(buf).unwrap();
-                    prop_len += will_property.content_type.into_bytes().len();
+                    prop_len += will_property.clone().content_type.into_bytes().len();
                 },
                 0x08 => {
                     let response_topic = read_string(buf).unwrap();
-                    prop_len += response_topic.into_bytes().len();
+                    prop_len += response_topic.clone().into_bytes().len();
                     will_property.response_topic = Some(response_topic);
                 },
                 0x09 => {
@@ -448,11 +359,31 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
 
     fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectFlag>, Error> {
         let connect_flags = buf.get_u8();
+        let reserved_flag = connect_flags & 0x01 != 0;
+        if reserved_flag {
+            return Err(Error::MalformedPacket);
+        }
+        // If a CONNECT packet is received with Clean Start is set to 1, the Client and Server MUST discard any existing Session and start a new Session
+        // If a CONNECT packet is received with Clean Start set to 0 and there is a Session associated with the Client Identifier, the Server MUST resume communications with the Client based on state from the existing Session [MQTT-3.1.2-5].
+        // If a CONNECT packet is received with Clean Start set to 0 and there is no Session associated with the Client Identifier, the Server MUST create a new Session [MQTT-3.1.2-6].
         let clean_start = (connect_flags >> 1) & 0x01 > 0;
         let will_flag = (connect_flags >> 2) & 0x01 > 0;
-        let will_qos = Qos::from_u8((connect_flags >> 3) & 0x03).unwrap();
+        let will_qos = Qos::from_u8((connect_flags >> 3) & 0x03).expect("Expected [Will Qos] value is 0(0x00), 1(0x01), 2(0x02)");
+        // If the Will Flag is set to 0, then the Will QoS MUST be set to 0 (0x00)
+        // If the Will Flag is set to 1, the value of Will QoS can be 0 (0x00), 1 (0x01), or 2 (0x02), A value of 3 (0x03) is a Malformed Packet.
+        if !will_flag && will_qos != Qos::AtMostOnce {
+            return Err(Error::MalformedPacket);
+        }
         let will_retain = (connect_flags >> 5) & 0x01 > 0;
+        // If the Will Flag is set to 0, then Will Retain MUST be set to 0.
+        // If the Will Flag is set to 1 and Will Retain is set to 0, the Server MUST publish the Will Message as a non-retained message.
+        // If the Will Flag is set to 1 and Will Retain is set to 1, the Server MUST publish the Will Message as a retained message
+        if !will_flag && will_retain {
+            return Err(Error::MalformedPacket);
+        }
         let password_flag = (connect_flags >> 6) & 0x01 > 0;
+        // MQTT5 allows the sending of a Password with no User Name, where MQTT v3.1.1 did not.
+        // This reflects the common use of Password for credentials other than a password.
         let username_flag = (connect_flags >> 7) & 0x01 > 0;
         Ok(Some(ConnectFlag {
             clean_start,
@@ -505,13 +436,13 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
                 0x26 => {
                     let name = read_string(buf).unwrap();
                     let value = read_string(buf).unwrap();
-                    prop_len += name.into_bytes().len();
-                    prop_len += value.into_bytes().len();
+                    prop_len += name.clone().into_bytes().len();
+                    prop_len += value.clone().into_bytes().len();
                     connect_property.user_properties.push_back((name, value));
                 },
                 0x15 => {
                     let authentication_method = read_string(buf).unwrap();
-                    prop_len += authentication_method.into_bytes().len();
+                    prop_len += authentication_method.clone().into_bytes().len();
                     connect_property.authentication_method = Some(authentication_method);
                 },
                 0x16 => {
@@ -529,14 +460,127 @@ impl FromToBuf<ConnectProperty> for ConnectProperty {
     }
 }
 
+
+/// Connect Reason Code
+///
+/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345364
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConnectReasonCode {
+    /// 0[0x00], Connection accepted
+    Success,
+    /// 128[0x80], The Server does not wish to reveal the reason for the failure,
+    /// or none of the other Reason Codes apply.
+    UnspecifiedError,
+    /// 129[0x81], Data within the `CONNECT` packet could not be correctly parsed
+    MalformedPacket,
+    /// 130[0x82], Data in the `CONNECT` packet does not conform to this specification
+    ProtocolError,
+    /// 131[0x83], The `CONNECT` is valid but is not accepted by this Server
+    ImplementationSpecificError,
+    /// 132[0x84], The Server does not support the version of the MQTT protocol requested by the Client.
+    UnsupportedProtocolVersion,
+    /// 133[0x85], The Client Identifier is a valid string but is not allowed by the Server
+    ClientIdentifierNotValid,
+    /// 134[0x86], The Server does not accept the User Name or Password specified by the Client
+    BadUsernameOrPassword,
+    /// 135[0x87], The Client is not authorized to connect
+    NotAuthorized,
+    /// 136[0x88], The MQTT Server is not available
+    ServerUnavailable,
+    /// 137[0x89], The Server is busy. Try again later
+    ServerBusy,
+    /// 138[0x8A], This Client has been banned by administrative action. Contact the server administrator
+    Banned,
+    /// 140[0x8C], The authentication method is not supported or does not match the authentication method currently in use
+    BadAuthenticationMethod,
+    /// 144[0x90], The Will Topic Name is not malformed, but is not accepted by this Server
+    TopicNameInvalid,
+    /// 149[0x95], The `CONNECT` packet exceeded the maximum permissible size
+    PacketTooLarge,
+    /// 151[0x97], An implementation or administrative imposed limit has been exceeded
+    QuotaExceeded,
+    /// 153[0x99], The Will Payload does not match the specified Payload Format Indicator
+    PayloadFormatInvalid,
+    /// 154[0x9A], The Server does not support retained messages, and Will Retain was set to 1
+    RetainNotSupported,
+    /// 155[0x9B], The Server does not support the QoS set in Will QoS
+    QoSNotSupported,
+    /// 156[0x9C], The Client should temporarily use another server
+    UseAnotherServer,
+    /// 157[0x9D], The Client should permanently use another server
+    ServerMoved,
+    /// 159[0x9F], The connection rate limit has been exceeded
+    ConnectionRateExceeded,
+}
+
+impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
+
+    fn to_u8(&self) -> u8 {
+        match *self {
+            ConnectReasonCode::Success => 0,
+            ConnectReasonCode::UnspecifiedError => 128,
+            ConnectReasonCode::MalformedPacket => 129,
+            ConnectReasonCode::ProtocolError => 130,
+            ConnectReasonCode::ImplementationSpecificError => 131,
+            ConnectReasonCode::UnsupportedProtocolVersion => 132,
+            ConnectReasonCode::ClientIdentifierNotValid => 133,
+            ConnectReasonCode::BadUsernameOrPassword => 134,
+            ConnectReasonCode::NotAuthorized => 135,
+            ConnectReasonCode::ServerUnavailable => 136,
+            ConnectReasonCode::ServerBusy => 137,
+            ConnectReasonCode::Banned => 138,
+            ConnectReasonCode::BadAuthenticationMethod => 140,
+            ConnectReasonCode::TopicNameInvalid => 144,
+            ConnectReasonCode::PacketTooLarge => 149,
+            ConnectReasonCode::QuotaExceeded => 151,
+            ConnectReasonCode::PayloadFormatInvalid => 153,
+            ConnectReasonCode::RetainNotSupported => 154,
+            ConnectReasonCode::QoSNotSupported => 155,
+            ConnectReasonCode::UseAnotherServer => 156,
+            ConnectReasonCode::ServerMoved => 157,
+            ConnectReasonCode::ConnectionRateExceeded => 159
+        }
+    }
+
+    fn from_u8(byte: u8) -> Result<ConnectReasonCode, Error> {
+        match byte {
+            0 => Ok(ConnectReasonCode::Success),
+            128 => Ok(ConnectReasonCode::UnspecifiedError),
+            129 => Ok(ConnectReasonCode::MalformedPacket),
+            130 => Ok(ConnectReasonCode::ProtocolError),
+            131 => Ok(ConnectReasonCode::ImplementationSpecificError),
+            132 => Ok(ConnectReasonCode::UnsupportedProtocolVersion),
+            133 => Ok(ConnectReasonCode::ClientIdentifierNotValid),
+            134 => Ok(ConnectReasonCode::BadUsernameOrPassword),
+            135 => Ok(ConnectReasonCode::NotAuthorized),
+            136 => Ok(ConnectReasonCode::ServerUnavailable),
+            137 => Ok(ConnectReasonCode::ServerBusy),
+            138 => Ok(ConnectReasonCode::Banned),
+            140 => Ok(ConnectReasonCode::BadAuthenticationMethod),
+            144 => Ok(ConnectReasonCode::TopicNameInvalid),
+            149 => Ok(ConnectReasonCode::PacketTooLarge),
+            151 => Ok(ConnectReasonCode::QuotaExceeded),
+            153 => Ok(ConnectReasonCode::PayloadFormatInvalid),
+            154 => Ok(ConnectReasonCode::RetainNotSupported),
+            155 => Ok(ConnectReasonCode::QoSNotSupported),
+            156 => Ok(ConnectReasonCode::UseAnotherServer),
+            157 => Ok(ConnectReasonCode::ServerMoved),
+            159 => Ok(ConnectReasonCode::ConnectionRateExceeded),
+            n => Err(Error::InvalidReasonCode(n))
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod test {
+    use crate::packet::PacketType;
+    use crate::FromToU8;
 
     #[test]
     fn test() {
-        let num = 1 >> 1;
-
-        println!("{:?}", num);
+        let packet_type = PacketType::from_u8(0b0100_0000 >> 4);
+        println!("{:?}", packet_type);
     }
 }
 
