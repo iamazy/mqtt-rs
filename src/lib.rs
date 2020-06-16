@@ -21,15 +21,6 @@ trait FromToBuf<R> {
     fn from_buf(buf: &mut BytesMut) -> Result<Option<R>, Error>;
 }
 
-
-pub struct FixedHeader {
-    packet_type: PacketType,
-    is_dup: bool,
-    qos: Qos,
-    is_retain: bool,
-    remaining_length: usize
-}
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PropertyType {
     PayloadFormatIndicator,
