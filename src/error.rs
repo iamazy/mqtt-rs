@@ -18,4 +18,9 @@ pub enum Error {
     InvalidPropertyType,
 
     InvalidVariableByteIntegerFormat,
+
+    InvalidPacketType(u8),
+
+    MalformedPacket
+
 }
