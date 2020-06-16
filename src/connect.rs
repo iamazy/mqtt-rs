@@ -7,6 +7,7 @@ use crate::PropertyType;
 use crate::decoder::{read_string, read_variable_byte_integer, read_bytes};
 use crate::frame::FixedHeader;
 use crate::packet::PacketType;
+use bytes::buf::BufExt;
 
 
 pub struct Connect {
@@ -15,7 +16,7 @@ pub struct Connect {
     payload: ConnectPayload,
 }
 
-impl FromToBuf<Connect> for Connect{
+impl FromToBuf<Connect> for Connect {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -30,7 +31,7 @@ impl FromToBuf<Connect> for Connect{
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: fixed_header_remaining_length
+            remaining_length: fixed_header_remaining_length,
         };
 
         // parse variable header
@@ -42,6 +43,7 @@ impl FromToBuf<Connect> for Connect{
 
         // parse connect properties
         let connect_property = ConnectProperty::from_buf(buf).unwrap().unwrap();
+        unimplemented!()
     }
 }
 
@@ -80,7 +82,7 @@ pub struct ConnectVariableHeader {
     /// value. If Keep Alive is non-zero and in the absence of sending any other MQTT Control Packets, the Client MUST
     /// send a `PINGREQ` packet
     pub keep_alive: usize,
-    pub connect_property: ConnectProperty
+    pub connect_property: ConnectProperty,
 }
 
 /// Connect Flag
@@ -156,7 +158,6 @@ pub struct ConnectProperty {
 }
 
 impl ConnectProperty {
-
     fn new() -> ConnectProperty {
         ConnectProperty {
             property_length: 0,
@@ -168,7 +169,7 @@ impl ConnectProperty {
             request_problem_information: false,
             user_properties: LinkedList::<(String, String)>::new(),
             authentication_method: None,
-            authentication_data: None
+            authentication_data: None,
         }
     }
 }
@@ -190,7 +191,6 @@ pub struct ConnectPayload {
 }
 
 impl ConnectPayload {
-
     fn new() -> ConnectPayload {
         ConnectPayload {
             client_id: String::default(),
@@ -204,7 +204,6 @@ impl ConnectPayload {
 }
 
 impl FromToBuf<ConnectPayload> for ConnectPayload {
-
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -222,10 +221,11 @@ impl FromToBuf<ConnectPayload> for ConnectPayload {
             will_topic: Some(will_topic),
             will_payload: Some(will_payload),
             username: Some(username),
-            password: Some(password)
+            password: Some(password),
         }))
     }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct WillProperty {
     /// Property Length
@@ -265,11 +265,10 @@ pub struct WillProperty {
     /// User Properties
     ///
     /// The User Property is allowed to appear multiple times to represent multiple name, value pairs. The same name is allowed to appear more than once.
-    user_properties: LinkedList<(String,String)>
+    user_properties: LinkedList<(String, String)>,
 }
 
 impl WillProperty {
-
     fn new() -> WillProperty {
         WillProperty {
             property_length: 0,
@@ -279,14 +278,12 @@ impl WillProperty {
             content_type: String::default(),
             response_topic: None,
             correlation_data: None,
-            user_properties: LinkedList::new()
+            user_properties: LinkedList::new(),
         }
     }
 }
 
 impl FromToBuf<WillProperty> for WillProperty {
-
-
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
@@ -301,40 +298,39 @@ impl FromToBuf<WillProperty> for WillProperty {
                 0x18 => {
                     will_property.will_delay_interval = buf.get_u32() as usize;
                     prop_len += 4;
-                },
+                }
                 0x01 => {
                     will_property.payload_format_indicator = buf.get_u8() & 0x01 == 1;
                     prop_len += 1;
-                },
+                }
                 0x02 => {
                     will_property.message_expiry_interval = Some(buf.get_u32() as usize);
                     prop_len += 4;
-                },
+                }
                 0x03 => {
                     will_property.content_type = read_string(buf).unwrap();
                     prop_len += will_property.clone().content_type.into_bytes().len();
-                },
+                }
                 0x08 => {
                     let response_topic = read_string(buf).unwrap();
                     prop_len += response_topic.clone().into_bytes().len();
                     will_property.response_topic = Some(response_topic);
-                },
+                }
                 0x09 => {
                     let length = buf.get_u16() as usize;
-                    let data  = buf.split_to(length);
+                    let data = buf.split_to(length);
                     will_property.correlation_data = Some(data.to_vec());
                     prop_len += length;
-                },
+                }
                 _ => return Err(Error::InvalidPropertyType)
             }
         }
-        return Ok(Some(will_property))
+        return Ok(Some(will_property));
 
     }
 }
 
 impl FromToBuf<ConnectFlag> for ConnectFlag {
-
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut connect_flags = 0b0000_0000;
         if self.clean_start {
@@ -391,66 +387,65 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
             will_qos,
             will_retain,
             password_flag,
-            username_flag
+            username_flag,
         }))
     }
 }
 
 impl FromToBuf<ConnectProperty> for ConnectProperty {
-
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectProperty>, Error> {
-        let mut property_length = read_variable_byte_integer(buf).unwrap();
+        let mut property_length = read_variable_byte_integer(buf)?;
         let mut prop_len: usize = 0;
         let mut connect_property = ConnectProperty::new();
         while property_length > prop_len {
-            let property_id = read_variable_byte_integer(buf).unwrap();
+            let property_id = read_variable_byte_integer(buf)?;
             match property_id {
                 0x11 => {
                     connect_property.session_expiry_interval = Some(buf.get_u32() as usize);
                     prop_len += 4;
-                },
+                }
                 0x21 => {
                     connect_property.receive_maximum = buf.get_u16();
                     prop_len += 2;
-                },
+                }
                 0x27 => {
                     connect_property.maximum_packet_size = Some(buf.get_u32() as usize);
                     prop_len += 4;
-                },
+                }
                 0x22 => {
                     connect_property.topic_alias_maximum = buf.get_u16();
                     prop_len += 2;
-                },
+                }
                 0x19 => {
                     connect_property.request_response_information = buf.get_u8() & 0x01 == 1;
                     prop_len += 1;
-                },
+                }
                 0x17 => {
                     connect_property.request_problem_information = buf.get_u8() & 0x01 == 1;
                     prop_len += 1;
-                },
+                }
                 0x26 => {
                     let name = read_string(buf).unwrap();
                     let value = read_string(buf).unwrap();
                     prop_len += name.clone().into_bytes().len();
                     prop_len += value.clone().into_bytes().len();
                     connect_property.user_properties.push_back((name, value));
-                },
+                }
                 0x15 => {
                     let authentication_method = read_string(buf).unwrap();
                     prop_len += authentication_method.clone().into_bytes().len();
                     connect_property.authentication_method = Some(authentication_method);
-                },
+                }
                 0x16 => {
                     let length = buf.get_u16() as usize;
                     let data = buf.split_to(length);
                     connect_property.authentication_data = Some(data.to_vec());
                     prop_len += length;
-                },
+                }
                 _ => {
                     return Err(Error::InvalidPropertyType);
                 }
@@ -514,7 +509,6 @@ pub enum ConnectReasonCode {
 }
 
 impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
-
     fn to_u8(&self) -> u8 {
         match *self {
             ConnectReasonCode::Success => 0,
@@ -578,9 +572,19 @@ mod test {
     use crate::FromToU8;
 
     #[test]
-    fn test() {
-        let packet_type = PacketType::from_u8(0b0100_0000 >> 4);
-        println!("{:?}", packet_type);
+    fn test_take() {
+        use bytes::{Buf, BufMut, buf::BufExt};
+
+        let mut buf = b"hello world"[..].take(100);
+        let mut dst = vec![];
+
+        dst.put(&mut buf);
+        println!("{}", dst.len());
+
+        let mut buf = buf.into_inner();
+        dst.clear();
+        dst.put(&mut buf);
+        println!("{}", buf.len());
     }
 }
 
