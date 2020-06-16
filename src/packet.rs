@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 use bytes::BufMut;
-use crate::Error;
+use crate::{Error, FromToU8};
 
 /// Packet Identifier
 ///
@@ -66,6 +66,50 @@ pub enum PacketType {
     DISCONNECT,
     /// 15, Two-way, Authentication exchange
     AUTH
+}
+
+impl FromToU8<PacketType> for PacketType {
+
+    fn to_u8(&self) -> u8 {
+        match *self {
+            PacketType::CONNECT => 1,
+            PacketType::CONNACK => 2,
+            PacketType::PUBLISH => 3,
+            PacketType::PUBACK => 4,
+            PacketType::PUBREC => 5,
+            PacketType::PUBREL => 6,
+            PacketType::PUBCOMP => 7,
+            PacketType::SUBSCRIBE => 8,
+            PacketType::SUBACK => 9,
+            PacketType::UNSUBSCRIBE => 10,
+            PacketType::UNSUBACK => 11,
+            PacketType::PINGREQ => 12,
+            PacketType::PINGRESP => 13,
+            PacketType::DISCONNECT => 14,
+            PacketType::AUTH => 15,
+        }
+    }
+
+    fn from_u8(byte: u8) -> Result<PacketType, Error> {
+        match byte {
+            1 => Ok(PacketType::CONNECT),
+            2 => Ok(PacketType::CONNACK),
+            3 => Ok(PacketType::PUBLISH),
+            4 => Ok(PacketType::PUBACK),
+            5 => Ok(PacketType::PUBREC),
+            6 => Ok(PacketType::PUBREL),
+            7 => Ok(PacketType::PUBCOMP),
+            8 => Ok(PacketType::SUBSCRIBE),
+            9 => Ok(PacketType::SUBACK),
+            10 => Ok(PacketType::UNSUBSCRIBE),
+            11 => Ok(PacketType::UNSUBACK),
+            12 => Ok(PacketType::PINGREQ),
+            13 => Ok(PacketType::PINGRESP),
+            14 => Ok(PacketType::DISCONNECT),
+            15 => Ok(PacketType::AUTH),
+            n => Err(Error::InvalidPacketType(n))
+        }
+    }
 }
 
 #[cfg(test)]
