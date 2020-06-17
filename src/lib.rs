@@ -7,9 +7,10 @@ mod connack;
 mod error;
 mod decoder;
 pub use error::Error;
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, BytesMut, Bytes};
 use crate::packet::PacketType;
 use crate::publish::Qos;
+use std::collections::LinkedList;
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -117,4 +118,15 @@ impl FromToU8<PropertyType> for PropertyType {
             _ => Err(Error::InvalidPropertyType)
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum PropertyValue {
+    Bits(u8),
+    TwoByteInteger(usize),
+    FourByteInteger(usize),
+    String(String),
+    VariableByteInteger(usize),
+    Binary(Bytes),
+    StringPair(LinkedList<(String, String)>)
 }
