@@ -1,6 +1,6 @@
-use crate::{Error, FromToU8, FromToBuf};
+use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property};
 use crate::protocol::Protocol;
-use std::collections::LinkedList;
+use std::collections::{LinkedList, HashMap};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::PropertyType;
@@ -8,6 +8,9 @@ use crate::decoder::{read_string, read_variable_byte_integer, read_bytes};
 use crate::frame::FixedHeader;
 use crate::packet::PacketType;
 use bytes::buf::BufExt;
+use dashmap::DashMap;
+use std::collections::hash_map::RandomState;
+use crate::connect::ConnectReasonCode::ProtocolError;
 
 
 pub struct Connect {
@@ -35,22 +38,255 @@ impl FromToBuf<Connect> for Connect {
         };
 
         // parse variable header
-        let protocol_name = read_string(buf)?;
+        let protocol_name = read_string(buf).expect("Failed to parse protocol name");
         let protocol_level = buf.get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
         let connect_flags = ConnectFlag::from_buf(buf)?.expect("Connect Flag can not be None, Please check it.");
         let keep_alive = buf.get_u16() as usize;
 
         // parse connect properties
-        let connect_property = ConnectProperty::from_buf(buf).unwrap().unwrap();
-        unimplemented!()
+        let mut connect_property_length = read_variable_byte_integer(buf)?;
+        let mut prop_len: usize = 0;
+        let mut connect_property = Mqtt5Property::new();
+        let mut connect_user_properties = LinkedList::<(String, String)>::new();
+        while connect_property_length > prop_len {
+            let property_id = read_variable_byte_integer(buf)?;
+            match property_id {
+                0x11 => {
+                    if connect_property.properties.contains_key(&0x11) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Session Expire Interval] more than once".to_string(), 0x11));
+                    }
+                    connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(buf.get_u32()));
+                    prop_len += 4;
+                }
+                0x21 => {
+                    // It is a Protocol Error to include the Receive Maximum value more than once or for receive maximum to have the value 0
+                    if connect_property.properties.contains_key(&0x21) ||
+                        *connect_property.properties.get(&0x21).unwrap() == PropertyValue::TwoByteInteger(0) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Receive Maximum] more than once or for it have the value 0".to_string(), 0x21));
+                    }
+                    // The Client uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to process concurrently.
+                    // There is no mechanism to limit the QoS 0 publications that the Server might try to send
+                    connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(buf.get_u16()));
+                    prop_len += 2;
+                }
+                0x27 => {
+                    // It is a Protocol Error to include the Maximum Packet Size more than once, or for the value to be set to zero.
+                    // If the Maximum Packet Size is not present, no limit on the packet size is imposed beyond the limitations in the
+                    // protocol as a result of the remaining length encoding and the protocol header sizes.
+                    if connect_property.properties.contains_key(&0x27) ||
+                        *connect_property.properties.get(&0x27).unwrap() == PropertyValue::FourByteInteger(0) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Maximum Packet Size] more than once or for it have the value 0".to_string(), 0x27));
+                    }
+                    connect_property.properties.insert(0x27, PropertyValue::FourByteInteger(buf.get_u32()));
+                    prop_len += 4;
+                }
+                0x22 => {
+                    //  It is a Protocol Error to include the Topic Alias Maximum value more than once.
+                    if connect_property.properties.contains_key(&0x22) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Topic Alias Maximum] more than once".to_string(), 0x22));
+                    }
+                    connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(buf.get_u16()));
+                    prop_len += 2;
+                }
+                0x19 => {
+                    let request_response_information = buf.get_u8();
+                    if connect_property.properties.contains_key(&0x19) ||
+                        (request_response_information != 0 && request_response_information != 1) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Request Response Information] more than once or to have a value other than 0 or 1".to_string(), 0x19));
+                    }
+                    connect_property.properties.insert(0x19, PropertyValue::Bit(request_response_information & 0x01 == 1));
+                    prop_len += 1;
+                }
+                0x17 => {
+                    let request_problem_information = buf.get_u8();
+                    if connect_property.properties.contains_key(&0x17) ||
+                        (request_problem_information != 0 && request_problem_information != 1) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Request Problem Information] more than once or to have a value other than 0 or 1".to_string(), 0x17));
+                    }
+                    connect_property.properties.insert(0x17, PropertyValue::Bit(request_problem_information & 0x01 == 1));
+                    prop_len += 1;
+                }
+                0x26 => {
+                    // The User Property is allowed to appear multiple times to represent multiple name, value pairs.
+                    // The same name is allowed to appear more than once.
+                    let name = read_string(buf).expect("Failed to parse User property in Connect Properties");
+                    let value = read_string(buf).expect("Failed to parse User property in Connect Properties");
+                    prop_len += name.clone().into_bytes().len();
+                    prop_len += value.clone().into_bytes().len();
+                    connect_user_properties.push_back((name, value));
+                }
+                0x15 => {
+                    if connect_property.properties.contains_key(&0x15) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Authentication Method] more than once".to_string(), 0x15));
+                    }
+                    let authentication_method = read_string(buf).expect("Failed to parse Authentication Method in Connect Properties");
+                    prop_len += authentication_method.clone().into_bytes().len();
+                    connect_property.properties.insert(0x15, PropertyValue::String(authentication_method));
+                }
+                0x16 => {
+                    if connect_property.properties.contains_key(&0x16) {
+                        return Err(Error::InvalidProtocol("Connect properties cannot contains [Authentication Data] more than once".to_string(), 0x16));
+                    }
+                    let length = buf.get_u16() as usize;
+                    let mut data = buf.split_to(length);
+                    connect_property.properties.insert(0x16, PropertyValue::Binary(data.to_bytes()));
+                    prop_len += length;
+                }
+                _ => {
+                    return Err(Error::InvalidConnectPropertyType);
+                }
+            }
+        }
+        // If the Session Expiry Interval is absent the value 0 is used. If it is set to 0, or is absent,
+        // the Session ends when the Network Connection is closed.
+        // If the Session Expiry Interval is 0xFFFFFFFF (UINT_MAX), the Session does not expire.
+        // The Client and Server MUST store the Session State after the Network Connection is closed if
+        // the Session Expiry Interval is greater than 0
+        if !connect_property.properties.contains_key(&0x11) {
+            connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(0));
+        }
+        // The value of Receive Maximum applies only to the current Network Connection.
+        // If the Receive Maximum value is absent then its value defaults to 65,535
+        if !connect_property.properties.contains_key(&0x21) {
+            connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
+        }
+        // If the Topic Alias Maximum property is absent, the default value is 0.
+        if !connect_property.properties.contains_key(&0x22) {
+            connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
+        }
+        // If the Request Response Information is absent, the value of 0 is used.
+        if !connect_property.properties.contains_key(&0x19) {
+            connect_property.properties.insert(0x19, PropertyValue::Bit(false));
+        }
+        if connect_user_properties.len() > 0 {
+            connect_property.properties.insert(0x26, PropertyValue::StringPair(connect_user_properties));
+        }
+        //  It is a Protocol Error to include Authentication Data if there is no Authentication Method
+        if connect_property.properties.contains_key(&0x16) &&
+            !connect_property.properties.contains_key(&0x15) {
+            return Err(Error::InvalidProtocol("Connect properties cannot contains Authentication Data if there is no Authentication Method".to_string(), 0x16));
+        }
+
+        let connect_variable_header = ConnectVariableHeader {
+            protocol,
+            connect_flags,
+            keep_alive,
+            connect_property,
+        };
+
+        // parse connect payload
+        let mut connect_payload = ConnectPayload::new();
+        let client_id = read_string(buf).expect("Failed to parse Client Id in CONNECT Payload");
+        connect_payload.client_id = client_id;
+        // parse will properties
+        // If the Will Flag is set to 1, the Will Properties is the next field in the Payload.
+        // The Will Properties field defines the Application Message properties to be sent with the Will Message when it is published,
+        // and properties which define when to publish the Will Message. The Will Properties consists of a Property Length and the Properties
+        if connect_variable_header.connect_flags.will_flag {
+            let will_property_length = read_variable_byte_integer(buf).expect("Failed to parse Will Property length");
+            let mut prop_len: usize = 0;
+            let mut will_property = Mqtt5Property::new();
+            let mut will_user_properties = LinkedList::<(String, String)>::new();
+            while will_property_length > prop_len {
+                let property_id = read_variable_byte_integer(buf).expect("Failed to parse Property Id in Will Properties");
+                match property_id {
+                    0x18 => {
+                        if will_property.properties.contains_key(&0x18) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Will Delay Interval] more than once".to_string(), 0x18));
+                        }
+                        will_property.properties.insert(0x18, PropertyValue::FourByteInteger(buf.get_u32()));
+                        prop_len += 4;
+                    }
+                    0x01 => {
+                        if will_property.properties.contains_key(&0x01) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Payload Format Indicator] more than once".to_string(), 0x18));
+                        }
+                        will_property.properties.insert(0x01, PropertyValue::Bit(buf.get_u8() & 0x01 == 1));
+                        prop_len += 1;
+                    }
+                    0x02 => {
+                        if will_property.properties.contains_key(&0x02) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Message Expiry Interval] more than once".to_string(), 0x02));
+                        }
+                        // If present, the Four Byte value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
+                        // If absent, no Message Expiry Interval is sent when the Server publishes the Will Message.
+                        will_property.properties.insert(0x02, PropertyValue::FourByteInteger(buf.get_u32()));
+                        prop_len += 4;
+                    }
+                    0x03 => {
+                        if will_property.properties.contains_key(&0x03) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Content Type] more than once".to_string(), 0x03));
+                        }
+                        let content_type = read_string(buf).expect("Failed to parse Content Type in Will Properties");
+                        prop_len += content_type.clone().into_bytes().len();
+                        will_property.properties.insert(0x03, PropertyValue::String(content_type));
+                    }
+                    0x08 => {
+                        if will_property.properties.contains_key(&0x08) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Response Topic] more than once".to_string(), 0x08));
+                        }
+                        let response_topic = read_string(buf).expect("Failed to parse Response Topic in Will Properties");
+                        prop_len += response_topic.clone().into_bytes().len();
+                        will_property.properties.insert(0x08, PropertyValue::String(response_topic));
+                    }
+                    0x09 => {
+                        if will_property.properties.contains_key(&0x09) {
+                            return Err(Error::InvalidProtocol("Will properties cannot contains [Correlation Data] more than once".to_string(), 0x09));
+                        }
+                        let length = buf.get_u16() as usize;
+                        prop_len += length;
+                        let mut data = buf.split_to(length);
+                        will_property.properties.insert(0x09, PropertyValue::Binary(data.to_bytes()));
+                    }
+                    0x26 => {
+                        let name = read_string(buf).expect("Failed to parse User property in Will Properties");
+                        let value = read_string(buf).expect("Failed to parse User property in Will Properties");
+                        prop_len += name.clone().into_bytes().len();
+                        prop_len += value.clone().into_bytes().len();
+                        will_user_properties.push_back((name, value));
+                    }
+                    _ => {
+                        return Err(Error::InvalidWillPropertyType);
+                    }
+                }
+            }
+            // If the Will Delay Interval is absent, the default value is 0 and there is no delay before the Will Message is published.
+            if !will_property.properties.contains_key(&0x18) {
+                will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
+            }
+            if will_user_properties.len() > 0 {
+                will_property.properties.insert(0x26, PropertyValue::StringPair(will_user_properties));
+            }
+            connect_payload.will_property = Some(will_property);
+
+            let will_topic = read_string(buf).expect("Failed to parse Will Topic in Will Properties");
+            connect_payload.will_topic = Some(will_topic);
+            let will_payload = read_bytes(buf).expect("Failed to parse Will Payload in Will Properties");
+            connect_payload.will_payload = Some(will_payload);
+        }
+        if connect_variable_header.connect_flags.username_flag {
+            let username = read_string(buf).expect("Failed to parse username in Will Properties");
+            connect_payload.username = Some(username);
+        }
+        if connect_variable_header.connect_flags.password_flag {
+            let password = read_string(buf).expect("Failed to parse password in Will Properties");
+            connect_payload.password = Some(password);
+        }
+        Ok(Some(
+            Connect {
+                fixed_header,
+                variable_header: connect_variable_header,
+                payload: connect_payload
+            }
+        ))
     }
 }
 
 /// CONNECT Packet
 ///
 /// https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ConnectVariableHeader {
     /// Protocol
     ///
@@ -72,7 +308,7 @@ pub struct ConnectVariableHeader {
     /// |  Bit |       7      |      6      |     5     | 4  | 3 |    2    |     1     |    0   |
     /// |      |User Name Flag|Password Flag|Will Retain|Will Qos|Will Flag|Clean Start|Reserved|
     /// |byte 8|      x       |      x      |     x     | x  | x |    x    |     x     |    0   |
-    pub connect_flag: ConnectFlag,
+    pub connect_flags: ConnectFlag,
     /// [Keep Alive]
     /// position: byte 9 - byte 10
     ///
@@ -82,7 +318,7 @@ pub struct ConnectVariableHeader {
     /// value. If Keep Alive is non-zero and in the absence of sending any other MQTT Control Packets, the Client MUST
     /// send a `PINGREQ` packet
     pub keep_alive: usize,
-    pub connect_property: ConnectProperty,
+    pub connect_property: Mqtt5Property,
 }
 
 /// Connect Flag
@@ -98,82 +334,6 @@ pub struct ConnectFlag {
     password_flag: bool,
 }
 
-/// CONNECT Properties
-///
-/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345331
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConnectProperty {
-    /// Property Length
-    ///
-    /// The length of the Properties in the `CONNECT` packet Variable Header encoded as a Variable Byte Integer
-    property_length: usize,
-    /// Session Expiry Interval
-    ///
-    /// unit: seconds
-    session_expiry_interval: Option<usize>,
-    /// Receive Maximum
-    ///
-    /// The Client uses this value to limit the number of QoS 1 and QoS 2 publications that it is willing to
-    /// process concurrently. There is no mechanism to limit the QoS 0 publications that the Server might try
-    /// to send.The value of Receive Maximum applies only to the current Network Connection. If the Receive
-    /// Maximum value is absent then its value defaults to 65,535.
-    receive_maximum: u16,
-    /// Maximum Packet Size
-    ///
-    /// Representing the Maximum Packet Size the Client is willing to accept. If the Maximum Packet Size is
-    /// not present, no limit on the packet size is imposed beyond the limitations in the protocol as a result
-    /// of the remaining length encoding and the protocol header sizes
-    maximum_packet_size: Option<usize>,
-    /// Topic Alias Maximum
-    ///
-    /// representing the Topic Alias Maximum value. It is a Protocol Error to include the Topic Alias Maximum
-    /// value more than once. If the Topic Alias Maximum property is absent, the default value is 0.
-    topic_alias_maximum: u16,
-    /// Request Response Information
-    ///
-    /// It is Protocol Error to include the Request Response Information more than once, or to have a value
-    /// other than 0 or 1. If the Request Response Information is absent, the value of 0 is used.
-    request_response_information: bool,
-    /// Request Problem Information
-    ///
-    /// It is a Protocol Error to include Request Problem Information more than once, or to have a value other
-    /// than 0 or 1. If the Request Problem Information is absent, the value of 1 is used.
-    request_problem_information: bool,
-    /// User Property
-    ///
-    /// User Property is allowed to appear multiple times to represent multiple name, value pairs. The same
-    /// name is allowed to appear more than once
-    user_properties: LinkedList<(String, String)>,
-    /// Authentication Method
-    ///
-    /// It's a UTF-8 Encoded String containing the name of the authentication method used for extended
-    /// authentication .It is a Protocol Error to include Authentication Method more than once.
-    /// If Authentication Method is absent, extended authentication is not performed
-    authentication_method: Option<String>,
-    /// Authentication Data
-    ///
-    /// It's a Binary Data containing authentication data. It is a Protocol Error to include Authentication
-    /// Data if there is no Authentication Method. It is a Protocol Error to include Authentication Data more than once
-    authentication_data: Option<Vec<u8>>,
-}
-
-impl ConnectProperty {
-    fn new() -> ConnectProperty {
-        ConnectProperty {
-            property_length: 0,
-            session_expiry_interval: None,
-            receive_maximum: 0,
-            maximum_packet_size: None,
-            topic_alias_maximum: 0,
-            request_response_information: false,
-            request_problem_information: false,
-            user_properties: LinkedList::<(String, String)>::new(),
-            authentication_method: None,
-            authentication_data: None,
-        }
-    }
-}
-
 /// CONNECT Payload
 ///
 /// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
@@ -183,7 +343,7 @@ pub struct ConnectPayload {
     /// to the Server has a unique ClientID. The ClientID MUST be used by Clients and by Servers to
     /// identify state that they hold relating to this MQTT Session between the Client and the Server
     client_id: String,
-    will_property: Option<WillProperty>,
+    will_property: Option<Mqtt5Property>,
     will_topic: Option<String>,
     will_payload: Option<Vec<u8>>,
     username: Option<String>,
@@ -203,132 +363,6 @@ impl ConnectPayload {
     }
 }
 
-impl FromToBuf<ConnectPayload> for ConnectPayload {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
-    }
-
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectPayload>, Error> {
-        let client_id = read_string(buf).unwrap();
-        let will_property = WillProperty::from_buf(buf).unwrap().unwrap();
-        let will_topic = read_string(buf).unwrap();
-        let will_payload = read_bytes(buf).unwrap();
-        let username = read_string(buf).unwrap();
-        let password = read_string(buf).unwrap();
-        Ok(Some(ConnectPayload {
-            client_id,
-            will_property: Some(will_property),
-            will_topic: Some(will_topic),
-            will_payload: Some(will_payload),
-            username: Some(username),
-            password: Some(password),
-        }))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct WillProperty {
-    /// Property Length
-    ///
-    /// The length of the Properties in the Will Properties encoded as a Variable Byte Integer.
-    property_length: usize,
-    /// Will Delay Interval
-    ///
-    /// unit: seconds
-    will_delay_interval: usize,
-    /// Payload Format Indicator
-    ///
-    /// 0 (0x00) Byte Indicates that the Will Message is unspecified bytes,
-    ///   which is equivalent to not sending a Payload Format Indicator.
-    /// 1 (0x01) Byte Indicates that the Will Message is UTF-8 Encoded Character Data.
-    ///   The UTF-8 data in the Payload MUST be well-formed UTF-8 as defined by the [Unicode specification] and restated in [RFC 3629]
-    payload_format_indicator: bool,
-    /// Message Expiry Interval
-    ///
-    /// If present, the Four Byte value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
-    /// If absent, no Message Expiry Interval is sent when the Server publishes the Will Message.
-    message_expiry_interval: Option<usize>,
-    /// Content Type
-    ///
-    /// It's a UTF-8 Encoded String describing the content of the Will Message, The value of the
-    /// Content Type is defined by the sending and receiving application.
-    content_type: String,
-    /// Response Topic
-    ///
-    /// The presence of a Response Topic identifies the Will Message as a Request.
-    response_topic: Option<String>,
-    /// Correlation Data
-    ///
-    /// The Correlation Data is used by the sender of the Request Message to identify which request the Response Message is for when it is received.
-    /// If the Correlation Data is not present, the Requester does not require any correlation data.
-    correlation_data: Option<Vec<u8>>,
-    /// User Properties
-    ///
-    /// The User Property is allowed to appear multiple times to represent multiple name, value pairs. The same name is allowed to appear more than once.
-    user_properties: LinkedList<(String, String)>,
-}
-
-impl WillProperty {
-    fn new() -> WillProperty {
-        WillProperty {
-            property_length: 0,
-            will_delay_interval: 0,
-            payload_format_indicator: false,
-            message_expiry_interval: Some(0),
-            content_type: String::default(),
-            response_topic: None,
-            correlation_data: None,
-            user_properties: LinkedList::new(),
-        }
-    }
-}
-
-impl FromToBuf<WillProperty> for WillProperty {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
-    }
-
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<WillProperty>, Error> {
-        let property_length = read_variable_byte_integer(buf).unwrap();
-        let mut prop_len: usize = 0;
-        let mut will_property = WillProperty::new();
-        while property_length > prop_len {
-            let property_id = read_variable_byte_integer(buf).unwrap();
-            match property_id {
-                0x18 => {
-                    will_property.will_delay_interval = buf.get_u32() as usize;
-                    prop_len += 4;
-                }
-                0x01 => {
-                    will_property.payload_format_indicator = buf.get_u8() & 0x01 == 1;
-                    prop_len += 1;
-                }
-                0x02 => {
-                    will_property.message_expiry_interval = Some(buf.get_u32() as usize);
-                    prop_len += 4;
-                }
-                0x03 => {
-                    will_property.content_type = read_string(buf).unwrap();
-                    prop_len += will_property.clone().content_type.into_bytes().len();
-                }
-                0x08 => {
-                    let response_topic = read_string(buf).unwrap();
-                    prop_len += response_topic.clone().into_bytes().len();
-                    will_property.response_topic = Some(response_topic);
-                }
-                0x09 => {
-                    let length = buf.get_u16() as usize;
-                    let data = buf.split_to(length);
-                    will_property.correlation_data = Some(data.to_vec());
-                    prop_len += length;
-                }
-                _ => return Err(Error::InvalidPropertyType)
-            }
-        }
-        return Ok(Some(will_property));
-
-    }
-}
 
 impl FromToBuf<ConnectFlag> for ConnectFlag {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
@@ -389,69 +423,6 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
             password_flag,
             username_flag,
         }))
-    }
-}
-
-impl FromToBuf<ConnectProperty> for ConnectProperty {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
-    }
-
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectProperty>, Error> {
-        let mut property_length = read_variable_byte_integer(buf)?;
-        let mut prop_len: usize = 0;
-        let mut connect_property = ConnectProperty::new();
-        while property_length > prop_len {
-            let property_id = read_variable_byte_integer(buf)?;
-            match property_id {
-                0x11 => {
-                    connect_property.session_expiry_interval = Some(buf.get_u32() as usize);
-                    prop_len += 4;
-                }
-                0x21 => {
-                    connect_property.receive_maximum = buf.get_u16();
-                    prop_len += 2;
-                }
-                0x27 => {
-                    connect_property.maximum_packet_size = Some(buf.get_u32() as usize);
-                    prop_len += 4;
-                }
-                0x22 => {
-                    connect_property.topic_alias_maximum = buf.get_u16();
-                    prop_len += 2;
-                }
-                0x19 => {
-                    connect_property.request_response_information = buf.get_u8() & 0x01 == 1;
-                    prop_len += 1;
-                }
-                0x17 => {
-                    connect_property.request_problem_information = buf.get_u8() & 0x01 == 1;
-                    prop_len += 1;
-                }
-                0x26 => {
-                    let name = read_string(buf).unwrap();
-                    let value = read_string(buf).unwrap();
-                    prop_len += name.clone().into_bytes().len();
-                    prop_len += value.clone().into_bytes().len();
-                    connect_property.user_properties.push_back((name, value));
-                }
-                0x15 => {
-                    let authentication_method = read_string(buf).unwrap();
-                    prop_len += authentication_method.clone().into_bytes().len();
-                    connect_property.authentication_method = Some(authentication_method);
-                }
-                0x16 => {
-                    let length = buf.get_u16() as usize;
-                    let data = buf.split_to(length);
-                    connect_property.authentication_data = Some(data.to_vec());
-                    prop_len += length;
-                }
-                _ => {
-                    return Err(Error::InvalidPropertyType);
-                }
-            }
-        }
-        Ok(Some(connect_property))
     }
 }
 
@@ -565,7 +536,6 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use crate::packet::PacketType;
@@ -586,8 +556,12 @@ mod test {
         dst.put(&mut buf);
         println!("{}", buf.len());
     }
-}
 
+    #[test]
+    fn test() {
+        println!("{}", 1 << 16);
+    }
+}
 
 
 
