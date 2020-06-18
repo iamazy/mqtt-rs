@@ -2,9 +2,6 @@ use std::num::NonZeroU16;
 use bytes::BufMut;
 use crate::{Error, FromToU8};
 
-/// Packet Identifier
-///
-/// when `Qos == 1 || Qos == 2`, `Packet Identifier` should be present in `PUBLISH` Packet
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketId(NonZeroU16);
 
@@ -14,7 +11,6 @@ impl PacketId {
         PacketId(NonZeroU16::new(1).unwrap())
     }
 
-    /// Get `Packet Identifier` as a raw `u16`
     pub fn get(self) -> u16 {
         self.0.get()
     }

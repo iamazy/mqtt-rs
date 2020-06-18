@@ -1,6 +1,5 @@
 use crate::Error;
 use bytes::{BytesMut, Buf};
-use crate::frame::FixedHeader;
 
 pub fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
     String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error().to_string()))
@@ -32,9 +31,9 @@ pub fn read_variable_byte_integer(buf: &mut BytesMut) -> Result<usize, Error> {
 
 #[cfg(test)]
 mod test {
-    use bytes::{Buf, BytesMut};
+    use bytes::Buf;
     use crate::decoder::{read_bytes};
-    use crate::{Error};
+
     #[test]
     fn test_decode() {
         use bytes::{BytesMut, BufMut};

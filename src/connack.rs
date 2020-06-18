@@ -1,5 +1,4 @@
 use crate::connect::ConnectReasonCode;
-use std::collections::LinkedList;
 use crate::Mqtt5Property;
 
 /// Connect acknowledgement

@@ -1,9 +1,7 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
 use crate::{Error, FromToU8};
-use bytes::{BufMut, BytesMut, Buf};
-use byteorder::{BigEndian, ReadBytesExt};
-use std::io::Cursor;
+use bytes::{BytesMut, Buf};
 use crate::decoder::read_variable_byte_integer;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

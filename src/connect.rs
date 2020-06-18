@@ -1,17 +1,9 @@
 use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property};
 use crate::protocol::Protocol;
-use std::collections::{LinkedList, HashMap};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
-use crate::PropertyType;
-use crate::decoder::{read_string, read_variable_byte_integer, read_bytes};
+use crate::decoder::{read_string, read_bytes};
 use crate::frame::FixedHeader;
-use crate::packet::PacketType;
-use bytes::buf::BufExt;
-use dashmap::DashMap;
-use std::collections::hash_map::RandomState;
-use crate::connect::ConnectReasonCode::ProtocolError;
-
 
 pub struct Connect {
     fixed_header: FixedHeader,
@@ -20,7 +12,7 @@ pub struct Connect {
 }
 
 impl FromToBuf<Connect> for Connect {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, _buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
 
@@ -35,7 +27,7 @@ impl FromToBuf<Connect> for Connect {
             .expect("Failed to parse Connect Variable Header");
 
         // parse connect payload
-        let mut connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
+        let connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
         Ok(Connect {
             fixed_header,
@@ -63,7 +55,7 @@ impl ConnectVariableHeader {
         let keep_alive = buf.get_u16() as usize;
 
         let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
-        ConnectVariableHeader::check_connect_property(&mut connect_property);
+        ConnectVariableHeader::check_connect_property(&mut connect_property)?;
 
         Ok(ConnectVariableHeader {
             protocol,
@@ -236,7 +228,7 @@ impl ConnectPayload {
 
         if connect_flags.will_flag {
             let mut will_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Will Property");
-            ConnectPayload::check_will_property(&mut will_property);
+            ConnectPayload::check_will_property(&mut will_property)?;
             connect_payload.will_property = Some(will_property);
 
             let will_topic = read_string(buf).expect("Failed to parse Will Topic in Will Properties");
@@ -365,11 +357,8 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 
 #[cfg(test)]
 mod test {
-    use crate::packet::PacketType;
-    use crate::FromToU8;
     use bytes::{BytesMut, BufMut};
     use crate::connect::ConnectVariableHeader;
-    use std::env::var;
 
     #[test]
     fn test_variable_header_example() {
@@ -392,7 +381,7 @@ mod test {
 
     #[test]
     fn test_take() {
-        use bytes::{Buf, BufMut, buf::BufExt};
+        use bytes::{BufMut, buf::BufExt};
 
         let mut buf = b"hello world"[..].take(100);
         let mut dst = vec![];

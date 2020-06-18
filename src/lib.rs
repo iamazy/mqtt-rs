@@ -8,8 +8,6 @@ mod error;
 mod decoder;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
-use crate::packet::PacketType;
-use crate::publish::Qos;
 use std::collections::{LinkedList, HashMap};
 use crate::decoder::{read_variable_byte_integer, read_string};
 
@@ -41,12 +39,12 @@ impl Mqtt5Property {
 
 impl FromToBuf<Mqtt5Property> for Mqtt5Property{
 
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, _buf: &mut impl BufMut) -> Result<usize, Error> {
         unimplemented!()
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
-        let mut property_length = read_variable_byte_integer(buf)
+        let property_length = read_variable_byte_integer(buf)
             .expect("Failed to parse Mqtt5 Properties");
         let mut prop_len: usize = 0;
         let mut property = Mqtt5Property::new();
