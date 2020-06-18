@@ -10,7 +10,7 @@ pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes};
 use crate::packet::PacketType;
 use crate::publish::Qos;
-use std::collections::LinkedList;
+use std::collections::{LinkedList, HashMap};
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -20,6 +20,21 @@ trait FromToU8<R> {
 trait FromToBuf<R> {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error>;
     fn from_buf(buf: &mut BytesMut) -> Result<Option<R>, Error>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mqtt5Property {
+    property_length: usize,
+    properties: HashMap<u8, PropertyValue>,
+}
+
+impl Mqtt5Property {
+    fn new() -> Mqtt5Property {
+        Mqtt5Property {
+            property_length: 0,
+            properties: HashMap::<u8, PropertyValue>::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -120,11 +135,12 @@ impl FromToU8<PropertyType> for PropertyType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PropertyValue {
-    Bits(u8),
-    TwoByteInteger(usize),
-    FourByteInteger(usize),
+    Bit(bool),
+    Byte(u8),
+    TwoByteInteger(u16),
+    FourByteInteger(u32),
     String(String),
     VariableByteInteger(usize),
     Binary(Bytes),
