@@ -1,8 +1,5 @@
 use crate::{FromToU8, Error};
 
-/// PUBACK Reason Code
-///
-/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345409
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubAckReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 1 message proceeds
@@ -60,10 +57,6 @@ impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
     }
 }
 
-
-/// PUBREC Reason Code
-///
-/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345419
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRecReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
@@ -120,10 +113,6 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
     }
 }
 
-
-/// Packet delivery Qos [Quality of Service] level
-///
-/// [Qos]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901103
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Qos {
     /// Qos value: 0

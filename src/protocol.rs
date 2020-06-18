@@ -3,14 +3,12 @@ use bytes::BufMut;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
-    /// [MQTT 5]: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html
     MQTT5
 }
 
 impl Protocol {
     pub(crate) fn new(name: &str, level: u8) -> Result<Protocol, Error> {
         match (name, level) {
-            /// Protocol Level: https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901033
             ("MQTT", 5u8) => Ok(Protocol::MQTT5),
             _ => Err(Error::InvalidProtocol(name.into(), level))
         }

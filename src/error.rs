@@ -15,11 +15,7 @@ pub enum Error {
 
     InvalidString(String),
 
-    InvalidPropertyType,
-
-    InvalidConnectPropertyType,
-
-    InvalidWillPropertyType,
+    InvalidPropertyType(String),
 
     InvalidVariableByteIntegerFormat,
 
