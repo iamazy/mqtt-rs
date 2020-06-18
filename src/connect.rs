@@ -27,8 +27,8 @@ impl FromToBuf<Connect> for Connect {
     fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
         // parse fixed header
         let fixed_header_buf = buf.get_u8();
-        let packet_type = PacketType::from_u8(fixed_header_buf >> 4).unwrap();
-        let fixed_header_remaining_length = read_variable_byte_integer(buf).unwrap();
+        let packet_type = PacketType::from_u8(fixed_header_buf >> 4).expect("Failed to parse Packet Type in Fixed Header");
+        let fixed_header_remaining_length = read_variable_byte_integer(buf).expect("Failed to parse Fixed Header Remaining Length");
         let fixed_header = FixedHeader {
             packet_type,
             dup: false,
