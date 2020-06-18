@@ -18,7 +18,7 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 pub fn read_variable_byte_integer(buf: &mut BytesMut) -> Result<usize, Error> {
     let mut len: usize = 0;
     for pos in 0..=3 {
-        if let Some(&byte) = buf.get(pos + 1) {
+        if let Some(&byte) = buf.get(pos) {
             len += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 buf.advance(pos + 1);

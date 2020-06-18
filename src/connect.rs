@@ -367,6 +367,28 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 mod test {
     use crate::packet::PacketType;
     use crate::FromToU8;
+    use bytes::{BytesMut, BufMut};
+    use crate::connect::ConnectVariableHeader;
+    use std::env::var;
+
+    #[test]
+    fn test_variable_header_example() {
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_u8(0);
+        buf.put_u8(4);
+        buf.put(&b"MQTT"[..]);
+        buf.put_u8(5);
+        buf.put_u8(0b11001110);
+        buf.put_u8(0);
+        buf.put_u8(10);
+        buf.put_u8(5);
+        buf.put_u8(17);
+        buf.put_u32(10);
+
+        let variable_header = ConnectVariableHeader::from_buf(&mut buf)
+            .expect("Failed to parse Connect Variable Header");
+        println!("{:?}", variable_header);
+    }
 
     #[test]
     fn test_take() {

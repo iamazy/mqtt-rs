@@ -55,6 +55,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
         while property_length > prop_len {
             let property_id = read_variable_byte_integer(buf)
                 .expect("Failed to parse Property Id");
+            prop_len += 1;
             match property_id {
                 // Payload Format Indicator -> Will
                 0x01 => {
