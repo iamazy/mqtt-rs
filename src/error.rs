@@ -17,6 +17,10 @@ pub enum Error {
 
     InvalidPropertyType,
 
+    InvalidConnectPropertyType,
+
+    InvalidWillPropertyType,
+
     InvalidVariableByteIntegerFormat,
 
     InvalidPacketType(u8),
