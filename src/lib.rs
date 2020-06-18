@@ -45,9 +45,10 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
 
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
         let property_length = read_variable_byte_integer(buf)
-            .expect("Failed to parse Mqtt5 Properties");
+            .expect("Failed to parse Mqtt5 Property length");
         let mut prop_len: usize = 0;
         let mut property = Mqtt5Property::new();
+        property.property_length = property_length;
         let mut user_properties = LinkedList::<(String, String)>::new();
 
         while property_length > prop_len {
