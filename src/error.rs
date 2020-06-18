@@ -3,6 +3,11 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
 
+    // Bad Data Type
+    InvalidDataFormat(String),
+
+    MalformedVariableByteInteger,
+
     InvalidProtocol(String, u8),
 
     InvalidQos(u8),
@@ -16,8 +21,6 @@ pub enum Error {
     InvalidString(String),
 
     InvalidPropertyType(String),
-
-    InvalidVariableByteIntegerFormat,
 
     InvalidPacketType(u8),
 
