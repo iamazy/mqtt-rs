@@ -12,3 +12,6 @@ tokio-util = { version = "0.3", features = ["codec"] }
 serde = "1"
 bytes = "0.5"
 byteorder = "1"
+anyhow = "1.0"
+thiserror = "1.0"
+dashmap = "4.0.0-rc6"
