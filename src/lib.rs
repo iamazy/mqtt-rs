@@ -19,7 +19,7 @@ trait FromToU8<R> {
 
 trait FromToBuf<R> {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error>;
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<R>, Error>;
+    fn from_buf(buf: &mut BytesMut) -> Result<R, Error>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

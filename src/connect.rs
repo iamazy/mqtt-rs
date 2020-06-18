@@ -24,7 +24,7 @@ impl FromToBuf<Connect> for Connect {
         unimplemented!()
     }
 
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<Connect>, Error> {
+    fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
         // parse fixed header
         let fixed_header_buf = buf.get_u8();
         let packet_type = PacketType::from_u8(fixed_header_buf >> 4).unwrap();
@@ -41,7 +41,7 @@ impl FromToBuf<Connect> for Connect {
         let protocol_name = read_string(buf).expect("Failed to parse protocol name");
         let protocol_level = buf.get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).unwrap();
-        let connect_flags = ConnectFlag::from_buf(buf)?.expect("Connect Flag can not be None, Please check it.");
+        let connect_flags = ConnectFlag::from_buf(buf).expect("Connect Flag can not be None, Please check it.");
         let keep_alive = buf.get_u16() as usize;
 
         // parse connect properties
@@ -273,13 +273,11 @@ impl FromToBuf<Connect> for Connect {
             let password = read_string(buf).expect("Failed to parse password in Will Properties");
             connect_payload.password = Some(password);
         }
-        Ok(Some(
-            Connect {
-                fixed_header,
-                variable_header: connect_variable_header,
-                payload: connect_payload
-            }
-        ))
+        Ok(Connect {
+            fixed_header,
+            variable_header: connect_variable_header,
+            payload: connect_payload,
+        })
     }
 }
 
@@ -387,7 +385,7 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         Ok(connect_flags as usize)
     }
 
-    fn from_buf(buf: &mut BytesMut) -> Result<Option<ConnectFlag>, Error> {
+    fn from_buf(buf: &mut BytesMut) -> Result<ConnectFlag, Error> {
         let connect_flags = buf.get_u8();
         let reserved_flag = connect_flags & 0x01 != 0;
         if reserved_flag {
@@ -415,14 +413,14 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         // MQTT5 allows the sending of a Password with no User Name, where MQTT v3.1.1 did not.
         // This reflects the common use of Password for credentials other than a password.
         let username_flag = (connect_flags >> 7) & 0x01 > 0;
-        Ok(Some(ConnectFlag {
+        Ok(ConnectFlag {
             clean_start,
             will_flag,
             will_qos,
             will_retain,
             password_flag,
             username_flag,
-        }))
+        })
     }
 }
 
