@@ -332,36 +332,6 @@ pub struct ConnectFlag {
     password_flag: bool,
 }
 
-/// CONNECT Payload
-///
-/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConnectPayload {
-    /// The Client Identifier (ClientID) identifies the Client to the Server. Each Client connecting
-    /// to the Server has a unique ClientID. The ClientID MUST be used by Clients and by Servers to
-    /// identify state that they hold relating to this MQTT Session between the Client and the Server
-    client_id: String,
-    will_property: Option<Mqtt5Property>,
-    will_topic: Option<String>,
-    will_payload: Option<Vec<u8>>,
-    username: Option<String>,
-    password: Option<String>,
-}
-
-impl ConnectPayload {
-    fn new() -> ConnectPayload {
-        ConnectPayload {
-            client_id: String::default(),
-            will_property: None,
-            will_topic: None,
-            will_payload: None,
-            username: None,
-            password: None,
-        }
-    }
-}
-
-
 impl FromToBuf<ConnectFlag> for ConnectFlag {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut connect_flags = 0b0000_0000;
@@ -421,6 +391,35 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
             password_flag,
             username_flag,
         })
+    }
+}
+
+/// CONNECT Payload
+///
+/// http://docs.oasis-open.org/mqtt/mqtt/v5.0/csprd02/mqtt-v5.0-csprd02.html#_Toc498345343
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectPayload {
+    /// The Client Identifier (ClientID) identifies the Client to the Server. Each Client connecting
+    /// to the Server has a unique ClientID. The ClientID MUST be used by Clients and by Servers to
+    /// identify state that they hold relating to this MQTT Session between the Client and the Server
+    client_id: String,
+    will_property: Option<Mqtt5Property>,
+    will_topic: Option<String>,
+    will_payload: Option<Vec<u8>>,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+impl ConnectPayload {
+    fn new() -> ConnectPayload {
+        ConnectPayload {
+            client_id: String::default(),
+            will_property: None,
+            will_topic: None,
+            will_payload: None,
+            username: None,
+            password: None,
+        }
     }
 }
 
@@ -553,11 +552,6 @@ mod test {
         dst.clear();
         dst.put(&mut buf);
         println!("{}", buf.len());
-    }
-
-    #[test]
-    fn test() {
-        println!("{}", 1 << 16);
     }
 }
 
