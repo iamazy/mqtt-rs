@@ -1,23 +1,28 @@
 use crate::Error;
-use bytes::{BytesMut, Buf, BufMut};
+use bytes::{BytesMut, Buf, BufMut, Bytes};
+
+pub fn write_string(string: String, buf: &mut impl BufMut) -> usize {
+    write_bytes(Bytes::from(string), buf)
+}
 
 pub fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
-    String::from_utf8(read_bytes(buf)?).map_err(|e| Error::InvalidString(e.utf8_error().to_string()))
+    String::from_utf8(read_bytes(buf)?.to_vec()).map_err(|e| Error::InvalidString(e.utf8_error().to_string()))
 }
 
-pub fn write_bytes(bytes: Vec<u8>, buf: &mut impl BufMut) {
+pub fn write_bytes(bytes: Bytes, buf: &mut impl BufMut) -> usize {
     let len = bytes.len();
-    assert!(len <= 65535, "Vec length must less than 65535");
-    buf.put_slice(bytes.as_slice());
+    assert!(len <= 65535, "Bytes length must less than or equal 65535");
+    buf.put_slice(bytes.bytes());
     buf.put_u16(len as u16);
+    len
 }
 
-pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
+pub fn read_bytes(buf: &mut BytesMut) -> Result<Bytes, Error> {
     let len = buf.get_u16() as usize;
     if len > buf.remaining() {
         Err(Error::InvalidLength)
     } else {
-        Ok(buf.split_to(len).to_vec())
+        Ok(buf.split_to(len).to_bytes())
     }
 }
 
@@ -26,10 +31,12 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 /// use bytes::BytesMut;
 ///
 /// let mut buf = BytesMut::with_capacity(2);
-/// write_variable_bytes(136, &mut buf);
+/// let len = write_variable_bytes(136, &mut buf);
+/// assert_eq!(len, 2);
 /// assert_eq!(buf.to_vec(), [127,1])
 /// ```
-pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) {
+pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) -> Result<usize, Error>{
+    let mut len = 0;
     while value > 0 {
         let mut encoded_byte: u8 = (value % 0x7F) as u8;
         value = value / 0x7F;
@@ -37,7 +44,9 @@ pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) {
             encoded_byte |= 0x7F;
         }
         buf.put_u8(encoded_byte);
+        len += 1;
     }
+    Ok(len)
 }
 
 /// # Examples
@@ -69,7 +78,7 @@ pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<usize, Error> {
 
 #[cfg(test)]
 mod test {
-    use bytes::{Buf, BytesMut, BufMut};
+    use bytes::{Buf, BufMut};
     use crate::decoder::read_bytes;
 
 

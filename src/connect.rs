@@ -1,7 +1,7 @@
 use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
-use bytes::{BytesMut, BufMut, Buf};
+use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::decoder::{read_string, read_bytes};
 use crate::frame::FixedHeader;
 
@@ -12,8 +12,11 @@ pub struct Connect {
 }
 
 impl FromToBuf<Connect> for Connect {
-    fn to_buf(&self, _buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut len = self.payload.to_buf(buf, &self.variable_header.connect_flags.clone())?;
+        len += self.variable_header.to_buf(buf).expect("Failed to parse Variable Header to Byte Buf");
+        len += self.fixed_header.to_buf(buf).expect("Failed to parse Fixed Header to Byte Buf");
+        Ok(len)
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
@@ -41,29 +44,11 @@ impl FromToBuf<Connect> for Connect {
 pub struct ConnectVariableHeader {
     pub protocol: Protocol,
     pub connect_flags: ConnectFlag,
-    pub keep_alive: usize,
+    pub keep_alive: u16,
     pub connect_property: Mqtt5Property,
 }
 
 impl ConnectVariableHeader {
-
-    fn from_buf(buf: &mut BytesMut) -> Result<ConnectVariableHeader, Error> {
-        let protocol_name = read_string(buf).expect("Failed to parse Protocol Name");
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).expect("Failed to parse Protocol");
-        let connect_flags = ConnectFlag::from_buf(buf).expect("Failed to parse Connect Flag");
-        let keep_alive = buf.get_u16() as usize;
-
-        let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
-        ConnectVariableHeader::check_connect_property(&mut connect_property)?;
-
-        Ok(ConnectVariableHeader {
-            protocol,
-            connect_flags,
-            keep_alive,
-            connect_property,
-        })
-    }
 
     fn check_connect_property(connect_property: &mut Mqtt5Property) -> Result<(), Error> {
 
@@ -104,6 +89,36 @@ impl ConnectVariableHeader {
             return Err(Error::InvalidProtocol("Connect properties cannot contains Authentication Data if there is no Authentication Method".to_string(), 0x16));
         }
         Ok(())
+    }
+}
+
+impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
+
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut len: usize = 0;
+        len += self.connect_property.to_buf(buf).expect("Failed to parse Connect Property to Byte Buf");
+        buf.put_u16(self.keep_alive);
+        len += self.connect_flags.to_buf(buf).expect("Failed to parse Connect Flags to Byte Buf");
+        len += self.protocol.to_buf(buf).expect("Failed to parse Protocol to Byte Buf");
+        Ok(len)
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<ConnectVariableHeader, Error> {
+        let protocol_name = read_string(buf).expect("Failed to parse Protocol Name");
+        let protocol_level = buf.get_u8();
+        let protocol = Protocol::new(&protocol_name, protocol_level).expect("Failed to parse Protocol");
+        let connect_flags = ConnectFlag::from_buf(buf).expect("Failed to parse Connect Flag");
+        let keep_alive = buf.get_u16();
+
+        let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
+        ConnectVariableHeader::check_connect_property(&mut connect_property)?;
+
+        Ok(ConnectVariableHeader {
+            protocol,
+            connect_flags,
+            keep_alive,
+            connect_property,
+        })
     }
 }
 
@@ -184,7 +199,7 @@ pub struct ConnectPayload {
     client_id: String,
     will_property: Option<Mqtt5Property>,
     will_topic: Option<String>,
-    will_payload: Option<Vec<u8>>,
+    will_payload: Option<Bytes>,
     username: Option<String>,
     password: Option<String>,
 }
@@ -219,6 +234,33 @@ impl ConnectPayload {
             will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
         }
         Ok(())
+    }
+
+    fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlag) -> Result<usize, Error> {
+        let mut len:usize = 0;
+        if connect_flags.password_flag {
+            let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
+            buf.put_slice(password.as_bytes());
+            len += password.as_bytes().len();
+        }
+        if connect_flags.username_flag {
+            let username = self.username.as_ref().expect("Failed to get Username from Connect Payload");
+            buf.put_slice(username.as_bytes());
+            len += username.as_bytes().len();
+        }
+        if connect_flags.will_flag {
+            let bytes = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload").bytes();
+            buf.put_slice(bytes);
+            len += bytes.len();
+            let bytes = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload").as_bytes();
+            buf.put_slice(bytes);
+            len += bytes.len();
+            let will_property = self.will_property.clone();
+            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf)?;
+        }
+        buf.put_slice(self.client_id.as_bytes());
+        len += self.client_id.as_bytes().len();
+        Ok(len)
     }
 
     fn from_buf(buf: &mut BytesMut, connect_flags: &ConnectFlag) -> Result<ConnectPayload, Error> {
@@ -359,6 +401,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 mod test {
     use bytes::{BytesMut, BufMut};
     use crate::connect::ConnectVariableHeader;
+    use crate::FromToBuf;
 
     #[test]
     fn test_variable_header_example() {
@@ -376,6 +419,10 @@ mod test {
 
         let variable_header = ConnectVariableHeader::from_buf(&mut buf)
             .expect("Failed to parse Connect Variable Header");
+
+        let mut buf = BytesMut::with_capacity(64);
+        variable_header.to_buf(&mut buf);
+        println!("{:?}", buf.to_vec());
         println!("{:?}", variable_header);
     }
 

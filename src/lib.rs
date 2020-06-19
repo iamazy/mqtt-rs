@@ -9,7 +9,7 @@ mod decoder;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::{LinkedList, HashMap};
-use crate::decoder::{read_variable_bytes, read_string};
+use crate::decoder::{read_variable_bytes, read_string, read_bytes, write_bytes, write_variable_bytes};
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -24,7 +24,7 @@ trait FromToBuf<R> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mqtt5Property {
     property_length: usize,
-    properties: HashMap<u8, PropertyValue>,
+    properties: HashMap<u32, PropertyValue>,
 }
 
 impl Mqtt5Property {
@@ -32,15 +32,55 @@ impl Mqtt5Property {
     fn new() -> Mqtt5Property {
         Mqtt5Property {
             property_length: 0,
-            properties: HashMap::<u8, PropertyValue>::default(),
+            properties: HashMap::<u32, PropertyValue>::default(),
         }
     }
 }
 
 impl FromToBuf<Mqtt5Property> for Mqtt5Property{
 
-    fn to_buf(&self, _buf: &mut impl BufMut) -> Result<usize, Error> {
-        unimplemented!()
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let properties = self.properties.clone();
+        for (key, value) in properties {
+            match value {
+                PropertyValue::Bit(val) => {
+                    match val {
+                        true => {
+                            buf.put_u8(1);
+                        }
+                        false => {
+                            buf.put_u8(0);
+                        }
+                    }
+                }
+                PropertyValue::Byte(val) => {
+                    buf.put_u8(val);
+                }
+                PropertyValue::TwoByteInteger(val) => {
+                    buf.put_u16(val);
+                }
+                PropertyValue::FourByteInteger(val) => {
+                    buf.put_u32(val);
+                }
+                PropertyValue::String(val) => {
+                    buf.put_slice(val.as_bytes());
+                }
+                PropertyValue::VariableByteInteger(val) => {
+                    write_variable_bytes(val,buf);
+                }
+                PropertyValue::Binary(val) => {
+                    buf.put_slice(val.bytes());
+                }
+                PropertyValue::StringPair(val) => {
+                    for item in val {
+                        buf.put_slice(item.1.as_bytes());
+                        buf.put_slice(item.0.as_bytes());
+                    }
+                }
+            }
+            buf.put_u32(key);
+        }
+        Ok(self.property_length)
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
@@ -116,7 +156,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                         return Err(Error::InvalidProtocol("Cannot contains [Authentication Method] more than once".to_string(), 0x15));
                     }
                     let authentication_method = read_string(buf).expect("Failed to parse Authentication Method");
-                    prop_len += authentication_method.clone().into_bytes().len();
+                    prop_len += authentication_method.clone().to_string().len();
                     property.properties.insert(0x15, PropertyValue::String(authentication_method));
                 }
                 // Authentication Data -> Connect

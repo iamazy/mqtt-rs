@@ -1,8 +1,8 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
 use crate::{Error, FromToU8};
-use bytes::{BytesMut, Buf};
-use crate::decoder::read_variable_bytes;
+use bytes::{BytesMut, Buf, BufMut};
+use crate::decoder::{read_variable_bytes, write_variable_bytes};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedHeader {
@@ -28,5 +28,24 @@ impl FixedHeader {
             retain,
             remaining_length,
         })
+    }
+
+    pub fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut len = write_variable_bytes(self.remaining_length, buf)?;
+        let packet_type = self.packet_type.clone();
+        let mut byte = packet_type.to_u8() << 4;
+        if self.retain {
+            byte |= 0x00;
+        } else {
+            byte |= 0x01;
+        }
+        byte |= self.qos.to_u8();
+        if self.dup {
+            byte |= 0x06;
+        } else {
+            byte |= 0x07;
+        }
+        len += 1;
+        Ok(len)
     }
 }
