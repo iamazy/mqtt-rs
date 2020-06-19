@@ -26,10 +26,10 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Vec<u8>, Error> {
 /// use bytes::BytesMut;
 ///
 /// let mut buf = BytesMut::with_capacity(2);
-/// write_variable_byte(136, &mut buf);
+/// write_variable_bytes(136, &mut buf);
 /// assert_eq!(buf.to_vec(), [127,1])
 /// ```
-pub fn write_variable_byte(mut value: usize, buf: &mut impl BufMut) {
+pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) {
     while value > 0 {
         let mut encoded_byte: u8 = (value % 0x7F) as u8;
         value = value / 0x7F;
@@ -49,10 +49,10 @@ pub fn write_variable_byte(mut value: usize, buf: &mut impl BufMut) {
 /// let mut buf = BytesMut::with_capacity(2);
 /// buf.put_u8(byte1);
 /// buf.put_u8(byte2);
-/// let value = read_variable_byte(&mut buf).unwrap();
+/// let value = read_variable_bytes(&mut buf).unwrap();
 /// assert_eq!(value, 0b1000_1000);
 /// ```
-pub fn read_variable_byte(buf: &mut BytesMut) -> Result<usize, Error> {
+pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<usize, Error> {
     let mut value: usize = 0;
     for pos in 0..=3 {
         if let Some(&byte) = buf.get(pos) {

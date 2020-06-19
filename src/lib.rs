@@ -9,7 +9,7 @@ mod decoder;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::{LinkedList, HashMap};
-use crate::decoder::{read_variable_byte, read_string};
+use crate::decoder::{read_variable_bytes, read_string};
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -44,7 +44,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
-        let property_length = read_variable_byte(buf)
+        let property_length = read_variable_bytes(buf)
             .expect("Failed to parse Mqtt5 Property length");
         let mut prop_len: usize = 0;
         let mut property = Mqtt5Property::new();
@@ -52,7 +52,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
         let mut user_properties = LinkedList::<(String, String)>::new();
 
         while property_length > prop_len {
-            let property_id = read_variable_byte(buf)
+            let property_id = read_variable_bytes(buf)
                 .expect("Failed to parse Property Id");
             prop_len += 1;
             match property_id {
