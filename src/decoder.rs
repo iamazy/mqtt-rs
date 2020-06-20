@@ -59,7 +59,6 @@ pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> Result<usiz
         if value > 0 {
             encoded_byte |= 0x7F;
         }
-        // buf.put_u8(encoded_byte);
         callback(encoded_byte);
         len += 1;
     }
