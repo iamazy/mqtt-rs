@@ -13,9 +13,9 @@ pub struct Connect {
 
 impl FromToBuf<Connect> for Connect {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.payload.to_buf(buf, &self.variable_header.connect_flags.clone())?;
+        let mut len = self.fixed_header.to_buf(buf).expect("Failed to parse Fixed Header to Byte Buf");
         len += self.variable_header.to_buf(buf).expect("Failed to parse Variable Header to Byte Buf");
-        len += self.fixed_header.to_buf(buf).expect("Failed to parse Fixed Header to Byte Buf");
+        len += self.payload.to_buf(buf, &self.variable_header.connect_flags.clone())?;
         Ok(len)
     }
 
@@ -103,11 +103,11 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len: usize = 0;
-        len += self.connect_property.to_buf(buf).expect("Failed to parse Connect Property to Byte Buf");
+        len += self.protocol.to_buf(buf).expect("Failed to parse Protocol to Byte Buf");
+        len += self.connect_flags.to_buf(buf).expect("Failed to parse Connect Flags to Byte Buf");
         buf.put_u16(self.keep_alive);
         len += 2;
-        len += self.connect_flags.to_buf(buf).expect("Failed to parse Connect Flags to Byte Buf");
-        len += self.protocol.to_buf(buf).expect("Failed to parse Protocol to Byte Buf");
+        len += self.connect_property.to_buf(buf).expect("Failed to parse Connect Property to Byte Buf");
         Ok(len)
     }
 
@@ -149,7 +149,7 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         if self.will_flag {
             connect_flags |= 0b0000_0100;
         }
-        connect_flags |= self.will_qos.to_u8();
+        connect_flags |= self.will_qos.to_u8() << 3;
         if self.will_retain {
             connect_flags |= 0b0010_0000;
         }
@@ -159,6 +159,7 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         if self.username_flag {
             connect_flags |= 0b1000_0000;
         }
+        connect_flags &= 0b1111_1110;
         buf.put_u8(connect_flags);
         Ok(connect_flags as usize)
     }
@@ -248,23 +249,23 @@ impl ConnectPayload {
 
     fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlag) -> Result<usize, Error> {
         let mut len:usize = 0;
-        if connect_flags.password_flag {
-            let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
-            len += write_string(password.clone(), buf)
+        len += write_string(self.client_id.clone(), buf);
+        if connect_flags.will_flag {
+            let will_property = self.will_property.clone();
+            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf)?;
+            let will_topic = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload");
+            len += write_string(will_topic.clone(), buf);
+            let will_payload = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload");
+            len += write_bytes(will_payload.clone(), buf);
         }
         if connect_flags.username_flag {
             let username = self.username.as_ref().expect("Failed to get Username from Connect Payload");
             len += write_string(username.clone(), buf)
         }
-        if connect_flags.will_flag {
-            let will_payload = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload");
-            len += write_bytes(will_payload.clone(), buf);
-            let will_topic = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload");
-            len += write_string(will_topic.clone(), buf);
-            let will_property = self.will_property.clone();
-            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf)?;
+        if connect_flags.password_flag {
+            let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
+            len += write_string(password.clone(), buf)
         }
-        len += write_string(self.client_id.clone(), buf);
         Ok(len)
     }
 
@@ -429,6 +430,7 @@ mod test {
         variable_header.to_buf(&mut buf);
         println!("{:?}", buf.to_vec());
         println!("{:?}", variable_header);
+        println!("{:?}", ConnectVariableHeader::from_buf(&mut buf));
     }
 
     #[test]

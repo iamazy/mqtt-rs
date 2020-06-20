@@ -65,6 +65,9 @@ pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> Result<usiz
     Ok(len)
 }
 
+/// First usize is function returned value
+/// Second usize is the number of consumed bytes
+///
 /// # Examples
 /// ```
 /// use bytes::{BytesMut, BufMut};
