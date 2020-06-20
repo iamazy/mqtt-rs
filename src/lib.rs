@@ -38,26 +38,7 @@ impl Mqtt5Property {
 }
 
 impl FromToBuf<Mqtt5Property> for Mqtt5Property {
-    /// # Examples
-    ///
-    /// ```
-    /// use mqtt_rs::{Mqtt5Property, PropertyValue};
-    /// use std::collections::LinkedList;
-    /// use bytes::BytesMut;
-    ///
-    /// let mut property = Mqtt5Property::new();
-    /// property.properties.insert(0x11, PropertyValue::FourByteInteger(30));
-    /// let mut list = LinkedList::new();
-    /// list.push_back(("name".to_string(), "iamazy".to_string()));
-    /// list.push_back(("age".to_string(), "23".to_string()));
-    /// property.properties.insert(0x26, PropertyValue::StringPair(list));
-    /// property.property_length = 30;
-    /// let mut buf = BytesMut::with_capacity(64);
-    /// property.to_buf(&mut buf);
-    /// assert_eq!(buf.to_vec(), [30, 17, 0, 0, 0, 30, 38, 0, 4, 110, 97, 109,
-    ///                           101, 0, 6, 105, 97, 109, 97, 122, 121, 38, 0,
-    ///                           3, 97, 103, 101, 0, 2, 50, 51]);
-    /// ```
+
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let properties = self.properties.clone();
         write_variable_bytes(self.property_length, |byte|buf.put_u8(byte));
@@ -116,16 +97,6 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
         Ok(self.property_length)
     }
 
-
-    /// # Examples
-    ///
-    /// ```
-    /// use mqtt_rs::Mqtt5Property;
-    ///
-    /// let vec: Vec<u8> = vec![30, 17, 0, 0, 0, 30, 38, 0, 4, 110, 97, 109, 101, 0, 6, 105, 97, 109, 97, 122, 121, 38, 0, 3, 97, 103, 101, 0, 2, 50, 51];
-    /// let mut buf = BytesMut::from(vec.as_slice());
-    /// let property = Mqtt5Property::from_buf(&mut buf).expect("Failed to parse Mqtt5 Property");
-    /// ```
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
         let property_length = read_variable_bytes(buf)
             .expect("Failed to parse Mqtt5 Property length").0;
