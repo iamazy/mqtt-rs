@@ -20,7 +20,7 @@ impl FixedHeader {
         let packet_type = PacketType::from_u8(fixed_header_buf >> 4)
             .expect("Failed to parse Packet Type in Fixed Header");
         let remaining_length = read_variable_bytes(buf)
-            .expect("Failed to parse Fixed Header Remaining Length");
+            .expect("Failed to parse Fixed Header Remaining Length").0;
         Ok(FixedHeader {
             packet_type,
             dup,
@@ -31,7 +31,7 @@ impl FixedHeader {
     }
 
     pub fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = write_variable_bytes(self.remaining_length, buf)?;
+        let mut len = write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte))?;
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;
         if self.retain {

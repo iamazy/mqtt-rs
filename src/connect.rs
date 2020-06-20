@@ -2,7 +2,7 @@ use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
-use crate::decoder::{read_string, read_bytes};
+use crate::decoder::{read_string, read_bytes, write_string, write_bytes, write_variable_bytes};
 use crate::frame::FixedHeader;
 
 pub struct Connect {
@@ -69,19 +69,26 @@ impl ConnectVariableHeader {
         // the Session Expiry Interval is greater than 0
         if !connect_property.properties.contains_key(&0x11) {
             connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(0));
+            connect_property.property_length += write_variable_bytes(0x11, |byte|{})?;
         }
         // The value of Receive Maximum applies only to the current Network Connection.
         // If the Receive Maximum value is absent then its value defaults to 65,535
         if !connect_property.properties.contains_key(&0x21) {
             connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
+            connect_property.property_length += write_variable_bytes(0x11, |byte|{})?;
+            connect_property.property_length += 2;
         }
         // If the Topic Alias Maximum property is absent, the default value is 0.
         if !connect_property.properties.contains_key(&0x22) {
             connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
+            connect_property.property_length += write_variable_bytes(0x22, |byte| {})?;
+            connect_property.property_length += 2;
         }
         // If the Request Response Information is absent, the value of 0 is used.
         if !connect_property.properties.contains_key(&0x19) {
             connect_property.properties.insert(0x19, PropertyValue::Bit(false));
+            connect_property.property_length += write_variable_bytes(0x19, |byte| {})?;
+            connect_property.property_length += 1;
         }
         //  It is a Protocol Error to include Authentication Data if there is no Authentication Method
         if connect_property.properties.contains_key(&0x16) &&
@@ -98,6 +105,7 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
         let mut len: usize = 0;
         len += self.connect_property.to_buf(buf).expect("Failed to parse Connect Property to Byte Buf");
         buf.put_u16(self.keep_alive);
+        len += 2;
         len += self.connect_flags.to_buf(buf).expect("Failed to parse Connect Flags to Byte Buf");
         len += self.protocol.to_buf(buf).expect("Failed to parse Protocol to Byte Buf");
         Ok(len)
@@ -232,6 +240,8 @@ impl ConnectPayload {
         // If the Will Delay Interval is absent, the default value is 0 and there is no delay before the Will Message is published.
         if !will_property.properties.contains_key(&0x18) {
             will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
+            will_property.property_length += write_variable_bytes(0x18, |byte| {})?;
+            will_property.property_length += 4;
         }
         Ok(())
     }
@@ -240,26 +250,21 @@ impl ConnectPayload {
         let mut len:usize = 0;
         if connect_flags.password_flag {
             let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
-            buf.put_slice(password.as_bytes());
-            len += password.as_bytes().len();
+            len += write_string(password.clone(), buf)
         }
         if connect_flags.username_flag {
             let username = self.username.as_ref().expect("Failed to get Username from Connect Payload");
-            buf.put_slice(username.as_bytes());
-            len += username.as_bytes().len();
+            len += write_string(username.clone(), buf)
         }
         if connect_flags.will_flag {
-            let bytes = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload").bytes();
-            buf.put_slice(bytes);
-            len += bytes.len();
-            let bytes = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload").as_bytes();
-            buf.put_slice(bytes);
-            len += bytes.len();
+            let will_payload = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload");
+            len += write_bytes(will_payload.clone(), buf);
+            let will_topic = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload");
+            len += write_string(will_topic.clone(), buf);
             let will_property = self.will_property.clone();
             len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf)?;
         }
-        buf.put_slice(self.client_id.as_bytes());
-        len += self.client_id.as_bytes().len();
+        len += write_string(self.client_id.clone(), buf);
         Ok(len)
     }
 
@@ -440,5 +445,10 @@ mod test {
         dst.clear();
         dst.put(&mut buf);
         println!("{}", buf.len());
+    }
+
+    #[test]
+    fn test_connect_flag() {
+
     }
 }

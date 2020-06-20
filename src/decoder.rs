@@ -12,9 +12,9 @@ pub fn read_string(buf: &mut BytesMut) -> Result<String, Error> {
 pub fn write_bytes(bytes: Bytes, buf: &mut impl BufMut) -> usize {
     let len = bytes.len();
     assert!(len <= 65535, "Bytes length must less than or equal 65535");
-    buf.put_slice(bytes.bytes());
     buf.put_u16(len as u16);
-    len
+    buf.put_slice(bytes.bytes());
+    len + 2
 }
 
 pub fn read_bytes(buf: &mut BytesMut) -> Result<Bytes, Error> {
@@ -35,7 +35,7 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Bytes, Error> {
 /// assert_eq!(len, 2);
 /// assert_eq!(buf.to_vec(), [127,1])
 /// ```
-pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) -> Result<usize, Error>{
+pub fn write_variable_bytes2(mut value: usize, buf: &mut impl BufMut) -> Result<usize, Error>{
     let mut len = 0;
     while value > 0 {
         let mut encoded_byte: u8 = (value % 0x7F) as u8;
@@ -44,6 +44,23 @@ pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) -> Result<u
             encoded_byte |= 0x7F;
         }
         buf.put_u8(encoded_byte);
+        len += 1;
+    }
+    Ok(len)
+}
+
+pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> Result<usize, Error>
+    where T: FnMut(u8)
+{
+    let mut len = 0;
+    while value > 0 {
+        let mut encoded_byte: u8 = (value % 0x7F) as u8;
+        value = value / 0x7F;
+        if value > 0 {
+            encoded_byte |= 0x7F;
+        }
+        // buf.put_u8(encoded_byte);
+        callback(encoded_byte);
         len += 1;
     }
     Ok(len)
@@ -61,14 +78,14 @@ pub fn write_variable_bytes(mut value: usize, buf: &mut impl BufMut) -> Result<u
 /// let value = read_variable_bytes(&mut buf).unwrap();
 /// assert_eq!(value, 0b1000_1000);
 /// ```
-pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<usize, Error> {
+pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<(usize, usize), Error> {
     let mut value: usize = 0;
     for pos in 0..=3 {
         if let Some(&byte) = buf.get(pos) {
             value += (byte as usize & 0x7F) << (pos * 7);
             if (byte & 0x80) == 0 {
                 buf.advance(pos + 1);
-                return Ok(value);
+                return Ok((value, pos + 1));
             }
         }
     }

@@ -6,10 +6,11 @@ mod connect;
 mod connack;
 mod error;
 mod decoder;
+
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::{LinkedList, HashMap};
-use crate::decoder::{read_variable_bytes, read_string, read_bytes, write_bytes, write_variable_bytes};
+use crate::decoder::{read_variable_bytes, read_string, read_bytes, write_bytes, write_variable_bytes, write_string};
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -23,13 +24,12 @@ trait FromToBuf<R> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mqtt5Property {
-    property_length: usize,
-    properties: HashMap<u32, PropertyValue>,
+    pub property_length: usize,
+    pub properties: HashMap<u32, PropertyValue>,
 }
 
 impl Mqtt5Property {
-
-    fn new() -> Mqtt5Property {
+    pub fn new() -> Mqtt5Property {
         Mqtt5Property {
             property_length: 0,
             properties: HashMap::<u32, PropertyValue>::default(),
@@ -37,13 +37,35 @@ impl Mqtt5Property {
     }
 }
 
-impl FromToBuf<Mqtt5Property> for Mqtt5Property{
-
+impl FromToBuf<Mqtt5Property> for Mqtt5Property {
+    /// # Examples
+    ///
+    /// ```
+    /// use mqtt_rs::{Mqtt5Property, PropertyValue};
+    /// use std::collections::LinkedList;
+    /// use bytes::BytesMut;
+    ///
+    /// let mut property = Mqtt5Property::new();
+    /// property.properties.insert(0x11, PropertyValue::FourByteInteger(30));
+    /// let mut list = LinkedList::new();
+    /// list.push_back(("name".to_string(), "iamazy".to_string()));
+    /// list.push_back(("age".to_string(), "23".to_string()));
+    /// property.properties.insert(0x26, PropertyValue::StringPair(list));
+    /// property.property_length = 30;
+    /// let mut buf = BytesMut::with_capacity(64);
+    /// property.to_buf(&mut buf);
+    /// assert_eq!(buf.to_vec(), [30, 17, 0, 0, 0, 30, 38, 0, 4, 110, 97, 109,
+    ///                           101, 0, 6, 105, 97, 109, 97, 122, 121, 38, 0,
+    ///                           3, 97, 103, 101, 0, 2, 50, 51]);
+    /// ```
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let properties = self.properties.clone();
+        write_variable_bytes(self.property_length, |byte|buf.put_u8(byte));
+        let mut len: usize = 0;
         for (key, value) in properties {
             match value {
                 PropertyValue::Bit(val) => {
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
                     match val {
                         true => {
                             buf.put_u8(1);
@@ -52,49 +74,71 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                             buf.put_u8(0);
                         }
                     }
+                    len += 1;
                 }
                 PropertyValue::Byte(val) => {
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
                     buf.put_u8(val);
+                    len += 1;
                 }
                 PropertyValue::TwoByteInteger(val) => {
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
                     buf.put_u16(val);
+                    len += 2;
                 }
                 PropertyValue::FourByteInteger(val) => {
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
                     buf.put_u32(val);
+                    len += 4;
                 }
                 PropertyValue::String(val) => {
-                    buf.put_slice(val.as_bytes());
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_string(val, buf);
                 }
                 PropertyValue::VariableByteInteger(val) => {
-                    write_variable_bytes(val,buf);
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(val, |byte|buf.put_u8(byte))?;
                 }
                 PropertyValue::Binary(val) => {
-                    buf.put_slice(val.bytes());
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_bytes(val, buf);
                 }
                 PropertyValue::StringPair(val) => {
                     for item in val {
-                        buf.put_slice(item.1.as_bytes());
-                        buf.put_slice(item.0.as_bytes());
+                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                        len += write_string(item.0, buf);
+                        len += write_string(item.1, buf);
                     }
                 }
             }
-            buf.put_u32(key);
         }
+        assert_eq!(self.property_length, len);
         Ok(self.property_length)
     }
 
+
+    /// # Examples
+    ///
+    /// ```
+    /// use mqtt_rs::Mqtt5Property;
+    ///
+    /// let vec: Vec<u8> = vec![30, 17, 0, 0, 0, 30, 38, 0, 4, 110, 97, 109, 101, 0, 6, 105, 97, 109, 97, 122, 121, 38, 0, 3, 97, 103, 101, 0, 2, 50, 51];
+    /// let mut buf = BytesMut::from(vec.as_slice());
+    /// let property = Mqtt5Property::from_buf(&mut buf).expect("Failed to parse Mqtt5 Property");
+    /// ```
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
         let property_length = read_variable_bytes(buf)
-            .expect("Failed to parse Mqtt5 Property length");
+            .expect("Failed to parse Mqtt5 Property length").0;
         let mut prop_len: usize = 0;
         let mut property = Mqtt5Property::new();
         property.property_length = property_length;
         let mut user_properties = LinkedList::<(String, String)>::new();
 
         while property_length > prop_len {
-            let property_id = read_variable_bytes(buf)
+            let variable_bytes = read_variable_bytes(buf)
                 .expect("Failed to parse Property Id");
-            prop_len += 1;
+            let property_id = variable_bytes.0;
+            prop_len += variable_bytes.1;
             match property_id {
                 // Payload Format Indicator -> Will
                 0x01 => {
@@ -120,7 +164,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                         return Err(Error::InvalidProtocol("Cannot contains [Content Type] more than once".to_string(), 0x03));
                     }
                     let content_type = read_string(buf).expect("Failed to parse Content Type");
-                    prop_len += content_type.clone().into_bytes().len();
+                    prop_len += content_type.clone().into_bytes().len() + 2;
                     property.properties.insert(0x03, PropertyValue::String(content_type));
                 }
                 // Response Topic -> Will
@@ -129,7 +173,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                         return Err(Error::InvalidProtocol("Cannot contains [Response Topic] more than once".to_string(), 0x08));
                     }
                     let response_topic = read_string(buf).expect("Failed to parse Response Topic");
-                    prop_len += response_topic.clone().into_bytes().len();
+                    prop_len += response_topic.clone().into_bytes().len() + 2;
                     property.properties.insert(0x08, PropertyValue::String(response_topic));
                 }
                 // Correlation Data -> Will
@@ -156,7 +200,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                         return Err(Error::InvalidProtocol("Cannot contains [Authentication Method] more than once".to_string(), 0x15));
                     }
                     let authentication_method = read_string(buf).expect("Failed to parse Authentication Method");
-                    prop_len += authentication_method.clone().to_string().len();
+                    prop_len += authentication_method.clone().to_string().len() + 2;
                     property.properties.insert(0x15, PropertyValue::String(authentication_method));
                 }
                 // Authentication Data -> Connect
@@ -224,8 +268,8 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                     // The same name is allowed to appear more than once.
                     let name = read_string(buf).expect("Failed to parse User property");
                     let value = read_string(buf).expect("Failed to parse User property");
-                    prop_len += name.clone().into_bytes().len();
-                    prop_len += value.clone().into_bytes().len();
+                    prop_len += name.clone().into_bytes().len() + 2;
+                    prop_len += value.clone().into_bytes().len() + 2;
                     user_properties.push_back((name, value));
                 }
                 // Maximum Packet Size -> Connect
@@ -234,7 +278,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property{
                     // If the Maximum Packet Size is not present, no limit on the packet size is imposed beyond the limitations in the
                     // protocol as a result of the remaining length encoding and the protocol header sizes.
                     let maximum_packet_size = buf.get_u32();
-                    if property.properties.contains_key(&0x27) || maximum_packet_size == 0{
+                    if property.properties.contains_key(&0x27) || maximum_packet_size == 0 {
                         return Err(Error::InvalidProtocol("Cannot contains [Maximum Packet Size] more than once or for it have the value 0".to_string(), 0x27));
                     }
                     property.properties.insert(0x27, PropertyValue::FourByteInteger(maximum_packet_size));
@@ -280,7 +324,7 @@ pub enum PropertyType {
     MaximumPacketSize,
     WildcardSubscriptionAvailable,
     SubscriptionIdentifierAvailable,
-    SharedSubscriptionAvailable
+    SharedSubscriptionAvailable,
 }
 
 impl FromToU8<PropertyType> for PropertyType {
@@ -359,5 +403,38 @@ pub enum PropertyValue {
     String(String),
     VariableByteInteger(usize),
     Binary(Bytes),
-    StringPair(LinkedList<(String, String)>)
+    StringPair(LinkedList<(String, String)>),
+}
+
+
+#[cfg(test)]
+mod test {
+    use crate::{Mqtt5Property, PropertyValue, FromToBuf};
+
+    #[test]
+    fn test_property2buf() {
+        use std::collections::LinkedList;
+        use bytes::BytesMut;
+
+        let mut property = Mqtt5Property::new();
+        property.properties.insert(0x11, PropertyValue::FourByteInteger(30));
+        let mut list = LinkedList::new();
+        list.push_back(("name".to_string(), "iamazy".to_string()));
+        list.push_back(("age".to_string(), "23".to_string()));
+        property.properties.insert(0x26, PropertyValue::StringPair(list));
+        property.property_length = 30;
+        let mut buf = BytesMut::with_capacity(64);
+        property.to_buf(&mut buf);
+        println!("{:?}", buf.to_vec());
+    }
+
+    #[test]
+    fn test_buf2property() {
+        use bytes::BytesMut;
+
+        let vec: Vec<u8> = vec![30, 17, 0, 0, 0, 30, 38, 0, 4, 110, 97, 109, 101, 0, 6, 105, 97, 109, 97, 122, 121, 38, 0, 3, 97, 103, 101, 0, 2, 50, 51];
+        let mut buf = BytesMut::from(vec.as_slice());
+        let property = Mqtt5Property::from_buf(&mut buf).expect("Failed to parse Mqtt5 Property");
+        println!("{:?}", property);
+    }
 }
