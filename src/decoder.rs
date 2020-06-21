@@ -97,7 +97,7 @@ pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<(usize, usize), Error> 
 
 #[cfg(test)]
 mod test {
-    use bytes::{Buf, BufMut};
+    use bytes::{Buf};
     use crate::decoder::read_bytes;
 
 
