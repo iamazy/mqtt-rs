@@ -3,5 +3,5 @@
 
 
 
-## Reference
+## MQTT Specifications
 [mqtt-CN](http://mqtt.p2hp.com/)
