@@ -7,22 +7,23 @@ pub struct PacketId(NonZeroU16);
 
 impl PacketId {
 
-    pub fn new() -> Self {
-        PacketId(NonZeroU16::new(1).unwrap())
+    pub fn new(value: u16) -> Self {
+        PacketId(NonZeroU16::new(value).unwrap())
     }
 
     pub fn get(self) -> u16 {
         self.0.get()
     }
 
-    pub(crate) fn to_buf(self, buf: &mut impl BufMut) -> Result<(), Error> {
-        Ok(buf.put_u16(self.get()))
+    pub(crate) fn to_buf(self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        buf.put_u16(self.get());
+        Ok(2)
     }
 }
 
 impl Default for PacketId {
     fn default() -> Self {
-        PacketId::new()
+        PacketId::new(1)
     }
 }
 
