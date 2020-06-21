@@ -1,115 +1,68 @@
-use crate::{FromToU8, Error};
+use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
+use crate::frame::FixedHeader;
+use crate::packet::PacketId;
+use bytes::{Bytes, BytesMut, BufMut, Buf};
+use crate::decoder::{read_string, write_string};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PubAckReasonCode {
-    /// 0[0x00], The message is accepted. Publication of the QoS 1 message proceeds
-    Success,
-    /// 16[0x10], The message is accepted but there are no subscribers. This is sent only by the Server.
-    /// If the Server knows that there are no matching subscribers, it MAY use this Reason Code instead of 0x00 (Success)
-    NoMatchingSubscribers,
-    /// 128[0x80], The receiver does not accept the publish but either does not want to reveal the reason,
-    /// or it does not match one of the other values
-    UnspecifiedError,
-    /// 131[0x83], The `PUBLISH` is valid but the receiver is not willing to accept it.
-    ImplementationSpecificError,
-    /// 135[0x87], The `PUBLISH` is not authorized
-    NotAuthorized,
-    /// 144[0x90], The Topic Name is not malformed, but is not accepted by this Client or Server
-    TopicNameInvalid,
-    /// 145[0x91], The Packet Identifier is already in use. This might indicate a mismatch in the Session State between
-    /// the Client and Server
-    PacketIdentifierInUse,
-    /// 151[0x97], An implementation or administrative imposed limit has been exceeded
-    QuotaExceeded,
-    /// 153[0x99], The payload format does not match the specified Payload Format Indicator
-    PayloadFormatInvalid
+#[derive(Debug, Clone, PartialEq)]
+pub struct Publish {
+    fixed_header: FixedHeader,
+    publish_variable_header: PublishVariableHeader,
+    payload: Bytes,
 }
 
-
-impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
-    fn to_u8(&self) -> u8 {
-        match *self {
-            PubAckReasonCode::Success => 0,
-            PubAckReasonCode::NoMatchingSubscribers => 16,
-            PubAckReasonCode::UnspecifiedError => 128,
-            PubAckReasonCode::ImplementationSpecificError => 131,
-            PubAckReasonCode::NotAuthorized => 135,
-            PubAckReasonCode::TopicNameInvalid => 144,
-            PubAckReasonCode::PacketIdentifierInUse => 145,
-            PubAckReasonCode::QuotaExceeded => 151,
-            PubAckReasonCode::PayloadFormatInvalid => 153,
-        }
+impl FromToBuf<Publish> for Publish {
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut len = self.fixed_header.to_buf(buf)?;
+        len += self.publish_variable_header.to_buf(buf)?;
+        buf.put_slice(self.payload.as_ref());
+        len += self.payload.len();
+        Ok(len)
     }
 
-    fn from_u8(byte: u8) -> Result<PubAckReasonCode, Error> {
-        match byte {
-            0 => Ok(PubAckReasonCode::Success),
-            16 => Ok(PubAckReasonCode::NoMatchingSubscribers),
-            128 => Ok(PubAckReasonCode::UnspecifiedError),
-            131 => Ok(PubAckReasonCode::ImplementationSpecificError),
-            135 => Ok(PubAckReasonCode::NotAuthorized),
-            144 => Ok(PubAckReasonCode::TopicNameInvalid),
-            145 => Ok(PubAckReasonCode::PacketIdentifierInUse),
-            151 => Ok(PubAckReasonCode::QuotaExceeded),
-            153 => Ok(PubAckReasonCode::PayloadFormatInvalid),
-            n => Err(Error::InvalidReasonCode(n))
-        }
+    fn from_buf(buf: &mut BytesMut) -> Result<Publish, Error> {
+        let fixed_header = FixedHeader::new(buf, true, Qos::ExactlyOnce, true)
+            .expect("Failed to parse Publish Fixed Header");
+        let publish_variable_header = PublishVariableHeader::from_buf(buf)
+            .expect("Failed to parse Publish Variable Header");
+        let payload_len = fixed_header.remaining_length
+            - publish_variable_header.topic_name.len()
+            - 2
+            - publish_variable_header.publish_property.property_length;
+        assert!(payload_len >= 0, "Publish Payload length must greater than 0");
+        let payload = buf.split_to(payload_len).to_bytes();
+        Ok(Publish {
+            fixed_header,
+            publish_variable_header,
+            payload,
+        })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PubRecReasonCode {
-    /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
-    Success,
-    /// 16[0x10], The message is accepted but there are no subscribers. This is sent only by the Server.
-    /// If the Server knows that there are no matching subscribers, it MAY use this Reason Code instead of 0x00 (Success)
-    NoMatchingSubscribers,
-    /// 128[0x80], The receiver does not accept the publish but either does not want to reveal the reason,
-    /// or it does not match one of the other values
-    UnspecifiedError,
-    /// 131[0x83], The PUBLISH is valid but the receiver is not willing to accept it
-    ImplementationSpecificError,
-    /// 135[0x87], The PUBLISH is not authorized
-    NotAuthorized,
-    /// 144[0x90], The Topic Name is not malformed, but is not accepted by this Client or Server
-    TopicNameInvalid,
-    /// 145[0x91], The Packet Identifier is already in use. This might indicate a mismatch in the
-    /// Session State between the Client and Server.
-    PacketIdentifierInUse,
-    /// 151[0x97], An implementation or administrative imposed limit has been exceeded
-    QuotaExceeded,
-    /// 153[0x99], The payload format does not match the one specified in the Payload Format Indicator
-    PayloadFormatInvalid,
+#[derive(Debug, Clone, PartialEq)]
+pub struct PublishVariableHeader {
+    topic_name: String,
+    packet_id: PacketId,
+    publish_property: Mqtt5Property,
 }
 
-impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
-    fn to_u8(&self) -> u8 {
-        match *self {
-            PubRecReasonCode::Success => 0,
-            PubRecReasonCode::NoMatchingSubscribers => 16,
-            PubRecReasonCode::UnspecifiedError => 128,
-            PubRecReasonCode::ImplementationSpecificError => 131,
-            PubRecReasonCode::NotAuthorized => 135,
-            PubRecReasonCode::TopicNameInvalid => 144,
-            PubRecReasonCode::PacketIdentifierInUse => 145,
-            PubRecReasonCode::QuotaExceeded => 151,
-            PubRecReasonCode::PayloadFormatInvalid => 153
-        }
+impl FromToBuf<PublishVariableHeader> for PublishVariableHeader {
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+        let mut len = write_string(self.topic_name.clone(), buf);
+        len += self.packet_id.to_buf(buf)?;
+        len += self.publish_property.to_buf(buf)?;
+        Ok(len)
     }
 
-    fn from_u8(byte: u8) -> Result<PubRecReasonCode, Error> {
-        match byte {
-            0 => Ok(PubRecReasonCode::Success),
-            16 => Ok(PubRecReasonCode::NoMatchingSubscribers),
-            128 => Ok(PubRecReasonCode::UnspecifiedError),
-            131 => Ok(PubRecReasonCode::ImplementationSpecificError),
-            135 => Ok(PubRecReasonCode::NotAuthorized),
-            144 => Ok(PubRecReasonCode::TopicNameInvalid),
-            145 => Ok(PubRecReasonCode::PacketIdentifierInUse),
-            151 => Ok(PubRecReasonCode::QuotaExceeded),
-            153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
-            n => Err(Error::InvalidReasonCode(n))
-        }
+    fn from_buf(buf: &mut BytesMut) -> Result<PublishVariableHeader, Error> {
+        let topic_name = read_string(buf).expect("Failed to parse Topic Name");
+        let packet_id = PacketId::new(buf.get_u16());
+        let publish_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Publish Properties");
+        Ok(PublishVariableHeader {
+            topic_name,
+            packet_id,
+            publish_property,
+        })
     }
 }
 
@@ -124,8 +77,7 @@ pub enum Qos {
 }
 
 impl FromToU8<Qos> for Qos {
-
-     fn to_u8(&self) -> u8 {
+    fn to_u8(&self) -> u8 {
         match *self {
             Qos::AtMostOnce => 0,
             Qos::AtLeastOnce => 1,
