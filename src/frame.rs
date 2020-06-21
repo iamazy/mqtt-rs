@@ -35,17 +35,14 @@ impl FixedHeader {
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;
         if self.retain {
-            byte |= 0x00;
-        } else {
             byte |= 0x01;
         }
-        byte |= self.qos.to_u8();
+        byte |= self.qos.to_u8() << 1;
         if self.dup {
-            byte |= 0x06;
-        } else {
-            byte |= 0x07;
+            byte |= 0b0000_1000;
         }
         len += 1;
+        buf.put_u8(byte);
         Ok(len)
     }
 }
