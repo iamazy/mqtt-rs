@@ -43,7 +43,7 @@ impl FromToBuf<Connect> for Connect {
 #[derive(Debug, Clone)]
 pub struct ConnectVariableHeader {
     pub protocol: Protocol,
-    pub connect_flags: ConnectFlag,
+    pub connect_flags: ConnectFlags,
     pub keep_alive: u16,
     pub connect_property: Mqtt5Property,
 }
@@ -69,25 +69,26 @@ impl ConnectVariableHeader {
         // the Session Expiry Interval is greater than 0
         if !connect_property.properties.contains_key(&0x11) {
             connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(0));
-            connect_property.property_length += write_variable_bytes(0x11, |byte|{})?;
+            connect_property.property_length += write_variable_bytes(0x11, |_|{})?;
+            connect_property.property_length += 4;
         }
         // The value of Receive Maximum applies only to the current Network Connection.
         // If the Receive Maximum value is absent then its value defaults to 65,535
         if !connect_property.properties.contains_key(&0x21) {
             connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
-            connect_property.property_length += write_variable_bytes(0x11, |byte|{})?;
+            connect_property.property_length += write_variable_bytes(0x11, |_|{})?;
             connect_property.property_length += 2;
         }
         // If the Topic Alias Maximum property is absent, the default value is 0.
         if !connect_property.properties.contains_key(&0x22) {
             connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
-            connect_property.property_length += write_variable_bytes(0x22, |byte| {})?;
+            connect_property.property_length += write_variable_bytes(0x22, |_| {})?;
             connect_property.property_length += 2;
         }
         // If the Request Response Information is absent, the value of 0 is used.
         if !connect_property.properties.contains_key(&0x19) {
             connect_property.properties.insert(0x19, PropertyValue::Bit(false));
-            connect_property.property_length += write_variable_bytes(0x19, |byte| {})?;
+            connect_property.property_length += write_variable_bytes(0x19, |_| {})?;
             connect_property.property_length += 1;
         }
         //  It is a Protocol Error to include Authentication Data if there is no Authentication Method
@@ -115,7 +116,7 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
         let protocol_name = read_string(buf).expect("Failed to parse Protocol Name");
         let protocol_level = buf.get_u8();
         let protocol = Protocol::new(&protocol_name, protocol_level).expect("Failed to parse Protocol");
-        let connect_flags = ConnectFlag::from_buf(buf).expect("Failed to parse Connect Flag");
+        let connect_flags = ConnectFlags::from_buf(buf).expect("Failed to parse Connect Flag");
         let keep_alive = buf.get_u16();
 
         let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
@@ -131,7 +132,7 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ConnectFlag {
+pub struct ConnectFlags {
     clean_start: bool,
     will_flag: bool,
     will_qos: Qos,
@@ -140,7 +141,7 @@ pub struct ConnectFlag {
     password_flag: bool,
 }
 
-impl FromToBuf<ConnectFlag> for ConnectFlag {
+impl FromToBuf<ConnectFlags> for ConnectFlags {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut connect_flags = 0b0000_0000;
         if self.clean_start {
@@ -164,7 +165,7 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         Ok(connect_flags as usize)
     }
 
-    fn from_buf(buf: &mut BytesMut) -> Result<ConnectFlag, Error> {
+    fn from_buf(buf: &mut BytesMut) -> Result<ConnectFlags, Error> {
         let connect_flags = buf.get_u8();
         let reserved_flag = connect_flags & 0x01 != 0;
         if reserved_flag {
@@ -192,7 +193,7 @@ impl FromToBuf<ConnectFlag> for ConnectFlag {
         // MQTT5 allows the sending of a Password with no User Name, where MQTT v3.1.1 did not.
         // This reflects the common use of Password for credentials other than a password.
         let username_flag = (connect_flags >> 7) & 0x01 > 0;
-        Ok(ConnectFlag {
+        Ok(ConnectFlags {
             clean_start,
             will_flag,
             will_qos,
@@ -241,13 +242,13 @@ impl ConnectPayload {
         // If the Will Delay Interval is absent, the default value is 0 and there is no delay before the Will Message is published.
         if !will_property.properties.contains_key(&0x18) {
             will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
-            will_property.property_length += write_variable_bytes(0x18, |byte| {})?;
+            will_property.property_length += write_variable_bytes(0x18, |_| {})?;
             will_property.property_length += 4;
         }
         Ok(())
     }
 
-    fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlag) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlags) -> Result<usize, Error> {
         let mut len:usize = 0;
         len += write_string(self.client_id.clone(), buf);
         if connect_flags.will_flag {
@@ -269,7 +270,7 @@ impl ConnectPayload {
         Ok(len)
     }
 
-    fn from_buf(buf: &mut BytesMut, connect_flags: &ConnectFlag) -> Result<ConnectPayload, Error> {
+    fn from_buf(buf: &mut BytesMut, connect_flags: &ConnectFlags) -> Result<ConnectPayload, Error> {
         let mut connect_payload = ConnectPayload::new();
         let client_id = read_string(buf).expect("Failed to parse Client Id in CONNECT Payload");
         connect_payload.client_id = client_id;
