@@ -1,6 +1,10 @@
 mod packet;
 mod frame;
 mod publish;
+mod puback;
+mod pubrec;
+mod pubrel;
+mod pubcomp;
 mod protocol;
 mod connect;
 mod connack;
@@ -10,7 +14,7 @@ mod decoder;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::{LinkedList, HashMap};
-use crate::decoder::{read_variable_bytes, read_string, read_bytes, write_bytes, write_variable_bytes, write_string};
+use crate::decoder::{read_variable_bytes, read_string, write_bytes, write_variable_bytes, write_string};
 
 trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -91,6 +95,17 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                         len += write_string(item.1, buf);
                     }
                 }
+                PropertyValue::Multiple(val) => {
+                    for property_value in val {
+                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                        match property_value {
+                            PropertyValue::VariableByteInteger(v) => {
+                                len += write_variable_bytes(v, |byte|buf.put_u8(byte))?;
+                            }
+                            _ => panic!("Not support yet")
+                        }
+                    }
+                }
             }
         }
         assert_eq!(self.property_length, len);
@@ -104,14 +119,14 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
         let mut property = Mqtt5Property::new();
         property.property_length = property_length;
         let mut user_properties = LinkedList::<(String, String)>::new();
-
+        let mut subscription_identifiers = vec![];
         while property_length > prop_len {
             let variable_bytes = read_variable_bytes(buf)
                 .expect("Failed to parse Property Id");
             let property_id = variable_bytes.0;
             prop_len += variable_bytes.1;
             match property_id {
-                // Payload Format Indicator -> Will
+                // Payload Format Indicator -> Will, Publish
                 0x01 => {
                     if property.properties.contains_key(&0x01) {
                         return Err(Error::InvalidProtocol("Cannot contains [Payload Format Indicator] more than once".to_string(), 0x18));
@@ -119,7 +134,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     property.properties.insert(0x01, PropertyValue::Bit(buf.get_u8() & 0x01 == 1));
                     prop_len += 1;
                 }
-                // Message Expiry Interval -> Will
+                // Message Expiry Interval -> Will, Publish
                 0x02 => {
                     if property.properties.contains_key(&0x02) {
                         return Err(Error::InvalidProtocol("Cannot contains [Message Expiry Interval] more than once".to_string(), 0x02));
@@ -129,7 +144,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     property.properties.insert(0x02, PropertyValue::FourByteInteger(buf.get_u32()));
                     prop_len += 4;
                 }
-                // Content Type -> Will
+                // Content Type -> Will, Publish
                 0x03 => {
                     if property.properties.contains_key(&0x03) {
                         return Err(Error::InvalidProtocol("Cannot contains [Content Type] more than once".to_string(), 0x03));
@@ -138,7 +153,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     prop_len += content_type.clone().into_bytes().len() + 2;
                     property.properties.insert(0x03, PropertyValue::String(content_type));
                 }
-                // Response Topic -> Will
+                // Response Topic -> Will, Publish
                 0x08 => {
                     if property.properties.contains_key(&0x08) {
                         return Err(Error::InvalidProtocol("Cannot contains [Response Topic] more than once".to_string(), 0x08));
@@ -147,7 +162,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     prop_len += response_topic.clone().into_bytes().len() + 2;
                     property.properties.insert(0x08, PropertyValue::String(response_topic));
                 }
-                // Correlation Data -> Will
+                // Correlation Data -> Will, Publish
                 0x09 => {
                     if property.properties.contains_key(&0x09) {
                         return Err(Error::InvalidProtocol("Cannot contains [Correlation Data] more than once".to_string(), 0x09));
@@ -157,13 +172,40 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     let mut data = buf.split_to(length);
                     property.properties.insert(0x09, PropertyValue::Binary(data.to_bytes()));
                 }
-                // Session Expiry Interval -> Connect
+                // Subscription Identifier
+                0x0B => {
+                    let subscription_identifier = read_variable_bytes(buf).expect("Failed to parse Subscription Identifier");
+                    if subscription_identifier.0 == 0 {
+                        return Err(Error::InvalidProtocol("The value of Subscription Identifier can not be zero".to_string(), 0x0B));
+                    }
+                    subscription_identifiers.push(PropertyValue::VariableByteInteger(subscription_identifier.0));
+                    prop_len += subscription_identifier.1;
+                }
+                // Session Expiry Interval -> Connect, Connack
                 0x11 => {
                     if property.properties.contains_key(&0x11) {
                         return Err(Error::InvalidProtocol("Cannot contains [Session Expire Interval] more than once".to_string(), 0x11));
                     }
                     property.properties.insert(0x11, PropertyValue::FourByteInteger(buf.get_u32()));
                     prop_len += 4;
+                }
+                // Assigned Client Identifier -> Connack
+                0x12 => {
+                    if property.properties.contains_key(&0x12) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Assigned Client Identifier] more than once".to_string(), 0x12));
+                    }
+                    let assigned_client_identifier = read_string(buf).expect("Failed to parse Assigned Client Identifier");
+                    property.properties.insert(0x12, PropertyValue::String(assigned_client_identifier.clone()));
+                    prop_len += assigned_client_identifier.len();
+                }
+                // Server Keep Alive -> Connack
+                0x13 => {
+                    if property.properties.contains_key(&0x13) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Server Keep Alive] more than once".to_string(), 0x13));
+                    }
+                    let server_keep_alive = buf.get_u16();
+                    property.properties.insert(0x13, PropertyValue::TwoByteInteger(server_keep_alive));
+                    prop_len += 2;
                 }
                 // Authentication Method -> Connect
                 0x15 => {
@@ -212,7 +254,34 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     property.properties.insert(0x19, PropertyValue::Bit(request_response_information & 0x01 == 1));
                     prop_len += 1;
                 }
-                // Receive Maximum -> Connect
+                // Response Information -> Connack
+                0x1A => {
+                    if property.properties.contains_key(&0x1A) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Response Information] more than once".to_string(), 0x1A));
+                    }
+                    let response_information = read_string(buf).expect("Failed to parse Response Information");
+                    property.properties.insert(0x1A, PropertyValue::String(response_information.clone()));
+                    prop_len += response_information.len();
+                }
+                // Server Reference -> Connack
+                0x1C => {
+                    if property.properties.contains_key(&0x1C) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Server Reference] more than once".to_string(), 0x1C));
+                    }
+                    let server_information = read_string(buf).expect("Failed to parse Server Reference");
+                    property.properties.insert(0x1C, PropertyValue::String(server_information.clone()));
+                    prop_len += server_information.len();
+                }
+                // Reason String -> Connack
+                0x1F => {
+                    if property.properties.contains_key(&0x1F) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Reason String] more than once or for it have the value 0".to_string(), 0x1F));
+                    }
+                    let reason_string = read_string(buf).expect("Failed to parse Reason Strinng");
+                    property.properties.insert(0x1F, PropertyValue::String(reason_string.clone()));
+                    prop_len += reason_string.len();
+                }
+                // Receive Maximum -> Connect, Connack
                 0x21 => {
                     // It is a Protocol Error to include the Receive Maximum value more than once or for receive maximum to have the value 0
                     let receive_maximum = buf.get_u16();
@@ -224,7 +293,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     property.properties.insert(0x21, PropertyValue::TwoByteInteger(receive_maximum));
                     prop_len += 2;
                 }
-                // Topic Alias Maximum -> Connect
+                // Topic Alias Maximum -> Connect, Connack
                 0x22 => {
                     //  It is a Protocol Error to include the Topic Alias Maximum value more than once.
                     if property.properties.contains_key(&0x22) {
@@ -233,7 +302,42 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     property.properties.insert(0x22, PropertyValue::TwoByteInteger(buf.get_u16()));
                     prop_len += 2;
                 }
-                // User Property -> Connect, Will
+                // Topic Alias -> Publish
+                0x23 => {
+                    if property.properties.contains_key(&0x23) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Topic Alias] more than once".to_string(), 0x23));
+                    }
+                    property.properties.insert(0x23, PropertyValue::TwoByteInteger(buf.get_u16()));
+                    prop_len += 2;
+                }
+                // Maximum Qos -> Connack
+                0x24 => {
+                    // It is a Protocol Error to include Maximum QoS more than once, or to have a value other than 0 or 1.
+                    if property.properties.contains_key(&0x24) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Maximum Qos] more than once".to_string(), 0x24));
+                    }
+                    let maximum_qos = buf.get_u8();
+                    match maximum_qos {
+                        0 | 1 => {},
+                        _ => return Err(Error::InvalidProtocol("Maximum Qos cannot have a value other than 0 or 1".to_string(), 0x24))
+                    }
+                    property.properties.insert(0x24, PropertyValue::Byte(maximum_qos));
+                    prop_len += 1;
+                }
+                // Retain Available -> Connack
+                0x25 => {
+                    if property.properties.contains_key(&0x25) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Retain Available] more than once".to_string(), 0x25));
+                    }
+                    let retain_available = buf.get_u8();
+                    match retain_available {
+                        0 | 1 => {},
+                        _ => return Err(Error::InvalidProtocol("Retain Available cannot have a value other than 0 or 1".to_string(), 0x25))
+                    }
+                    property.properties.insert(0x25, PropertyValue::Byte(retain_available));
+                    prop_len += 1;
+                }
+                // User Property -> Connect, Will, Publish
                 0x26 => {
                     // The User Property is allowed to appear multiple times to represent multiple name, value pairs.
                     // The same name is allowed to appear more than once.
@@ -243,17 +347,56 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     prop_len += value.clone().into_bytes().len() + 2;
                     user_properties.push_back((name, value));
                 }
-                // Maximum Packet Size -> Connect
+                // Maximum Packet Size -> Connect, Connack
                 0x27 => {
                     // It is a Protocol Error to include the Maximum Packet Size more than once, or for the value to be set to zero.
                     // If the Maximum Packet Size is not present, no limit on the packet size is imposed beyond the limitations in the
                     // protocol as a result of the remaining length encoding and the protocol header sizes.
                     let maximum_packet_size = buf.get_u32();
                     if property.properties.contains_key(&0x27) || maximum_packet_size == 0 {
-                        return Err(Error::InvalidProtocol("Cannot contains [Maximum Packet Size] more than once or for it have the value 0".to_string(), 0x27));
+                        return Err(Error::InvalidProtocol("Cannot contains [Maximum Packet Size] more than once".to_string(), 0x27));
                     }
                     property.properties.insert(0x27, PropertyValue::FourByteInteger(maximum_packet_size));
                     prop_len += 4;
+                }
+                // Wildcard Subscription Available -> Connack
+                0x28 => {
+                    if property.properties.contains_key(&0x28) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Wildcard Subscription Available] more than once or for it have the value 0 or 1".to_string(), 0x28));
+                    }
+                    let wildcard_subscription_available = buf.get_u8();
+                    match wildcard_subscription_available {
+                        0 | 1 => {},
+                        _ => return Err(Error::InvalidProtocol("Wildcard Subscription Available cannot have a value other than 0 or 1".to_string(), 0x28))
+                    }
+                    property.properties.insert(0x28, PropertyValue::Byte(wildcard_subscription_available));
+                    prop_len += 1;
+                }
+                // Subscription Identifiers Available -> Connack
+                0x29 => {
+                    if property.properties.contains_key(&0x29) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Subscription Identifiers Available] more than once or for it have the value 0 or 1".to_string(), 0x29));
+                    }
+                    let subscription_identifier_available = buf.get_u8();
+                    match subscription_identifier_available {
+                        0 | 1 => {},
+                        _ => return Err(Error::InvalidProtocol("Subscription Identifiers Available cannot have a value other than 0 or 1".to_string(), 0x29))
+                    }
+                    property.properties.insert(0x29, PropertyValue::Byte(subscription_identifier_available));
+                    prop_len += 1;
+                }
+                // Shared Subscription Available -> Connack
+                0x2A => {
+                    if property.properties.contains_key(&0x29) {
+                        return Err(Error::InvalidProtocol("Cannot contains [Shared Subscription Available] more than once or for it have the value 0 or 1".to_string(), 0x2A));
+                    }
+                    let shared_subscription_available = buf.get_u8();
+                    match shared_subscription_available {
+                        0 | 1 => {},
+                        _ => return Err(Error::InvalidProtocol("Shared Subscription Available cannot have a value other than 0 or 1".to_string(), 0x2A))
+                    }
+                    property.properties.insert(0x2A, PropertyValue::Byte(shared_subscription_available));
+                    prop_len += 1;
                 }
                 _ => {
                     return Err(Error::InvalidPropertyType("It's a invalid Property Type".to_string()));
@@ -262,6 +405,10 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
         }
         if user_properties.len() > 0 {
             property.properties.insert(0x26, PropertyValue::StringPair(user_properties));
+        }
+
+        if subscription_identifiers.len() > 0 {
+            property.properties.insert(0x0B, PropertyValue::Multiple(subscription_identifiers));
         }
         Ok(property)
     }
@@ -375,6 +522,7 @@ pub enum PropertyValue {
     VariableByteInteger(usize),
     Binary(Bytes),
     StringPair(LinkedList<(String, String)>),
+    Multiple(Vec<PropertyValue>)
 }
 
 
