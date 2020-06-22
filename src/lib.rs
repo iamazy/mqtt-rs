@@ -5,6 +5,7 @@ mod puback;
 mod pubrec;
 mod pubrel;
 mod pubcomp;
+mod subscribe;
 mod protocol;
 mod connect;
 mod connack;
