@@ -22,7 +22,7 @@ impl FixedHeader {
         if dup != ((fixed_header_byte >> 3) & 0x01 == 1) {
             return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Dup again".to_string()))
         }
-        if qos != (Qos::from_u8((fixed_header_byte >> 1) & 0x03)) {
+        if qos != (Qos::from_u8((fixed_header_byte >> 1) & 0x03)?) {
             return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Qos again".to_string()))
         }
         if retain != (fixed_header_byte & 0x01 == 1) {
