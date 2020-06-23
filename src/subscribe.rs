@@ -18,7 +18,7 @@ impl FromToBuf<Subscribe> for Subscribe {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.subscribe_variable_header.to_buf(buf)?;
-        for (topic_filter, subscription_options) in self.payload {
+        for (topic_filter, subscription_options) in self.payload.clone() {
             len += write_string(topic_filter, buf);
             len += subscription_options.to_buf(buf)?;
         }
@@ -36,8 +36,8 @@ impl FromToBuf<Subscribe> for Subscribe {
             let topic_filter = read_string(buf).expect("Failed to parse Topic Filter");
             let subscription_options = SubscriptionOptions::from_buf(buf)
                 .expect("Failed to parse Subscription Options");
-            payload.push((topic_filter, subscription_options));
-            remaining = remaining - topic_filter.len() - 1;
+            payload.push((topic_filter.clone(), subscription_options));
+            remaining = remaining - topic_filter.len() - 3;
             if remaining < 0 {
                 return Err(Error::MalformedPacket);
             }
@@ -110,7 +110,7 @@ impl FromToBuf<SubscriptionOptions> for SubscriptionOptions {
         if self.retain_as_published {
             option_byte |= 0b0000_1000;
         }
-        option_byte |= (self.retain_handling << 4);
+        option_byte |= self.retain_handling << 4;
         buf.put_u8(option_byte);
         Ok(1)
     }
@@ -128,5 +128,54 @@ impl FromToBuf<SubscriptionOptions> for SubscriptionOptions {
             retain_as_published,
             retain_handling
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::subscribe::SubscriptionOptions;
+    use crate::decoder::{read_string, write_string};
+    use crate::{FromToBuf};
+
+    #[test]
+    fn test_subscribe_payload() {
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_u8(0);
+        buf.put_u8(3);
+        buf.put_u8('a' as u8);
+        buf.put_u8('/' as u8);
+        buf.put_u8('b' as u8);
+        buf.put_u8(1);
+        buf.put_u8(0);
+        buf.put_u8(3);
+        buf.put_u8('c' as u8);
+        buf.put_u8('/' as u8);
+        buf.put_u8('d' as u8);
+        buf.put_u8(2);
+        println!("{:?}", buf.to_vec());
+
+        let mut payload = Vec::<(String, SubscriptionOptions)>::new();
+        let mut remaining = 12;
+        while remaining > 0 {
+            let topic_filter = read_string(&mut buf).expect("Failed to parse Topic Filter");
+            let subscription_options = SubscriptionOptions::from_buf(&mut buf)
+                .expect("Failed to parse Subscription Options");
+            payload.push((topic_filter.clone(), subscription_options));
+            remaining = remaining - topic_filter.len() - 3;
+            if remaining < 0 {
+                break;
+            }
+        }
+        println!("{:?}", payload);
+
+        let mut buf = BytesMut::with_capacity(64);
+        let mut len = 0;
+        for (topic_filter, subscription_options) in payload.clone() {
+            len += write_string(topic_filter, &mut buf);
+            len += subscription_options.to_buf(&mut buf).expect("Failed to encode Subscription Options");
+        }
+        println!("{:?}", buf.to_vec());
+
     }
 }
