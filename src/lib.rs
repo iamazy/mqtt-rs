@@ -533,7 +533,6 @@ mod test {
 
     #[test]
     fn test_property2buf() {
-        use std::collections::LinkedList;
         use bytes::BytesMut;
 
         let mut property = Mqtt5Property::new();
