@@ -8,6 +8,8 @@ pub enum Error {
 
     MalformedVariableByteInteger,
 
+    MalformedFixedHeader(String),
+
     InvalidProtocol(String, u8),
 
     InvalidQos(u8),
