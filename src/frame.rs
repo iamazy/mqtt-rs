@@ -16,9 +16,18 @@ pub struct FixedHeader {
 impl FixedHeader {
 
     pub(crate) fn new(buf: &mut BytesMut, dup: bool, qos: Qos, retain: bool) -> Result<FixedHeader, Error> {
-        let fixed_header_buf = buf.get_u8();
-        let packet_type = PacketType::from_u8(fixed_header_buf >> 4)
+        let fixed_header_byte = buf.get_u8();
+        let packet_type = PacketType::from_u8(fixed_header_byte >> 4)
             .expect("Failed to parse Packet Type in Fixed Header");
+        if dup != ((fixed_header_byte >> 3) & 0x01 == 1) {
+            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Dup again".to_string()))
+        }
+        if qos != (Qos::from_u8((fixed_header_byte >> 1) & 0x03)) {
+            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Qos again".to_string()))
+        }
+        if retain != (fixed_header_byte & 0x01 == 1) {
+            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Retain again".to_string()))
+        }
         let remaining_length = read_variable_bytes(buf)
             .expect("Failed to parse Fixed Header Remaining Length").0;
         Ok(FixedHeader {
