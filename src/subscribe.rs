@@ -131,6 +131,73 @@ impl FromToBuf<SubscriptionOptions> for SubscriptionOptions {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SubscribeReasonCode {
+    /// 0[0x00], The subscription is accepted and the maximum QoS sent will be QoS 0.
+    /// This might be a lower QoS than was requested.
+    GrantedQos0,
+    /// 1[0x01], The subscription is accepted and the maximum QoS sent will be QoS 1.
+    /// This might be a lower QoS than was requested.
+    GrantedQos1,
+    /// 2[0x02], The subscription is accepted and any received QoS will be sent to this subscription.
+    GrantedQos2,
+    /// 128[0x80], The subscription is not accepted and the Server either does not wish to reveal the
+    /// reason or none of the other Reason Codes apply.
+    UnspecifiedError,
+    /// 131[0x83], The SUBSCRIBE is valid but the Server does not accept it.
+    ImplementationSpecificError,
+    /// 135[0x87], The Client is not authorized to make this subscription.
+    NotAuthorized,
+    /// 143[0x8F], The Topic Filter is correctly formed but is not allowed for this Client.
+    TopicFilterInvalid,
+    /// 145[0X91], The specified Packet Identifier is already in use.
+    PacketIdentifierInUse,
+    /// 151[0X97], An implementation or administrative imposed limit has been exceeded.
+    QuotaExceeded,
+    /// 158[0X9E], The Server does not support Shared Subscriptions for this Client.
+    SharedSubscriptionNotSupported,
+    /// 161[0XA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
+    SubscriptionIdentifierNotSupported,
+    /// 162[0XA2], The Server does not support Wildcard subscription; the subscription is not accepted.
+    WildcardSubscriptionNotSupported
+}
+
+impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
+    fn to_u8(&self) -> u8 {
+        match *self {
+            SubscribeReasonCode::GrantedQos0 => 0,
+            SubscribeReasonCode::GrantedQos1 => 1,
+            SubscribeReasonCode::GrantedQos2 => 2,
+            SubscribeReasonCode::UnspecifiedError => 128,
+            SubscribeReasonCode::ImplementationSpecificError => 131,
+            SubscribeReasonCode::NotAuthorized => 135,
+            SubscribeReasonCode::TopicFilterInvalid => 143,
+            SubscribeReasonCode::PacketIdentifierInUse => 145,
+            SubscribeReasonCode::QuotaExceeded => 151,
+            SubscribeReasonCode::SharedSubscriptionNotSupported => 158,
+            SubscribeReasonCode::SubscriptionIdentifierNotSupported => 161,
+            SubscribeReasonCode::WildcardSubscriptionNotSupported => 162,
+        }
+    }
+
+    fn from_u8(byte: u8) -> Result<SubscribeReasonCode, Error> {
+        match byte {
+            0 => Ok(SubscribeReasonCode::GrantedQos0),
+            1 => Ok(SubscribeReasonCode::GrantedQos1),
+            2 => Ok(SubscribeReasonCode::GrantedQos2),
+            128 => Ok(SubscribeReasonCode::UnspecifiedError),
+            131 => Ok(SubscribeReasonCode::ImplementationSpecificError),
+            135 => Ok(SubscribeReasonCode::NotAuthorized),
+            143 => Ok(SubscribeReasonCode::TopicFilterInvalid),
+            145 => Ok(SubscribeReasonCode::PacketIdentifierInUse),
+            151 => Ok(SubscribeReasonCode::QuotaExceeded),
+            158 => Ok(SubscribeReasonCode::SharedSubscriptionNotSupported),
+            161 => Ok(SubscribeReasonCode::SubscriptionIdentifierNotSupported),
+            162 => Ok(SubscribeReasonCode::WildcardSubscriptionNotSupported),
+            n => Err(Error::InvalidReasonCode(n))
+        }
+    }
+}
 #[cfg(test)]
 mod test {
     use bytes::{BytesMut, BufMut};
