@@ -14,7 +14,7 @@ mod decoder;
 
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
-use std::collections::{LinkedList, HashMap};
+use std::collections::HashMap;
 use crate::decoder::{read_variable_bytes, read_string, write_bytes, write_variable_bytes, write_string};
 
 trait FromToU8<R> {
@@ -119,7 +119,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
         let mut prop_len: usize = 0;
         let mut property = Mqtt5Property::new();
         property.property_length = property_length;
-        let mut user_properties = LinkedList::<(String, String)>::new();
+        let mut user_properties = Vec::<(String, String)>::new();
         let mut subscription_identifiers = vec![];
         while property_length > prop_len {
             let variable_bytes = read_variable_bytes(buf)
@@ -346,7 +346,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     let value = read_string(buf).expect("Failed to parse User property");
                     prop_len += name.clone().into_bytes().len() + 2;
                     prop_len += value.clone().into_bytes().len() + 2;
-                    user_properties.push_back((name, value));
+                    user_properties.push((name, value));
                 }
                 // Maximum Packet Size -> Connect, Connack
                 0x27 => {
@@ -522,7 +522,7 @@ pub enum PropertyValue {
     String(String),
     VariableByteInteger(usize),
     Binary(Bytes),
-    StringPair(LinkedList<(String, String)>),
+    StringPair(Vec<(String, String)>),
     Multiple(Vec<PropertyValue>)
 }
 
@@ -538,9 +538,9 @@ mod test {
 
         let mut property = Mqtt5Property::new();
         property.properties.insert(0x11, PropertyValue::FourByteInteger(30));
-        let mut list = LinkedList::new();
-        list.push_back(("name".to_string(), "iamazy".to_string()));
-        list.push_back(("age".to_string(), "23".to_string()));
+        let mut list = Vec::new();
+        list.push(("name".to_string(), "iamazy".to_string()));
+        list.push(("age".to_string(), "23".to_string()));
         property.properties.insert(0x26, PropertyValue::StringPair(list));
         property.property_length = 30;
         let mut buf = BytesMut::with_capacity(64);
