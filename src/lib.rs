@@ -152,8 +152,8 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                         return Err(Error::InvalidProtocol("Cannot contains [Content Type] more than once".to_string(), 0x03));
                     }
                     let content_type = read_string(buf).expect("Failed to parse Content Type");
-                    prop_len += content_type.clone().into_bytes().len() + 2;
-                    property.properties.insert(0x03, PropertyValue::String(content_type));
+                    property.properties.insert(0x03, PropertyValue::String(content_type.clone()));
+                    prop_len += content_type.len() + 2;
                 }
                 // Response Topic -> Will, Publish
                 0x08 => {
@@ -161,8 +161,8 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                         return Err(Error::InvalidProtocol("Cannot contains [Response Topic] more than once".to_string(), 0x08));
                     }
                     let response_topic = read_string(buf).expect("Failed to parse Response Topic");
-                    prop_len += response_topic.clone().into_bytes().len() + 2;
-                    property.properties.insert(0x08, PropertyValue::String(response_topic));
+                    property.properties.insert(0x08, PropertyValue::String(response_topic.clone()));
+                    prop_len += response_topic.len() + 2;
                 }
                 // Correlation Data -> Will, Publish
                 0x09 => {
@@ -198,7 +198,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     }
                     let assigned_client_identifier = read_string(buf).expect("Failed to parse Assigned Client Identifier");
                     property.properties.insert(0x12, PropertyValue::String(assigned_client_identifier.clone()));
-                    prop_len += assigned_client_identifier.len();
+                    prop_len += assigned_client_identifier.len() + 2;
                 }
                 // Server Keep Alive -> Connack
                 0x13 => {
@@ -215,8 +215,8 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                         return Err(Error::InvalidProtocol("Cannot contains [Authentication Method] more than once".to_string(), 0x15));
                     }
                     let authentication_method = read_string(buf).expect("Failed to parse Authentication Method");
-                    prop_len += authentication_method.clone().to_string().len() + 2;
-                    property.properties.insert(0x15, PropertyValue::String(authentication_method));
+                    property.properties.insert(0x15, PropertyValue::String(authentication_method.clone()));
+                    prop_len += authentication_method.len() + 2;
                 }
                 // Authentication Data -> Connect
                 0x16 => {
@@ -263,7 +263,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     }
                     let response_information = read_string(buf).expect("Failed to parse Response Information");
                     property.properties.insert(0x1A, PropertyValue::String(response_information.clone()));
-                    prop_len += response_information.len();
+                    prop_len += response_information.len() + 2;
                 }
                 // Server Reference -> Connack
                 0x1C => {
@@ -272,7 +272,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     }
                     let server_information = read_string(buf).expect("Failed to parse Server Reference");
                     property.properties.insert(0x1C, PropertyValue::String(server_information.clone()));
-                    prop_len += server_information.len();
+                    prop_len += server_information.len() + 2;
                 }
                 // Reason String -> Connack
                 0x1F => {
@@ -281,7 +281,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     }
                     let reason_string = read_string(buf).expect("Failed to parse Reason Strinng");
                     property.properties.insert(0x1F, PropertyValue::String(reason_string.clone()));
-                    prop_len += reason_string.len();
+                    prop_len += reason_string.len() + 2;
                 }
                 // Receive Maximum -> Connect, Connack
                 0x21 => {
@@ -345,9 +345,9 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
                     // The same name is allowed to appear more than once.
                     let name = read_string(buf).expect("Failed to parse User property");
                     let value = read_string(buf).expect("Failed to parse User property");
-                    prop_len += name.clone().into_bytes().len() + 2;
-                    prop_len += value.clone().into_bytes().len() + 2;
-                    user_properties.push((name, value));
+                    user_properties.push((name.clone(), value.clone()));
+                    prop_len += name.len() + 2;
+                    prop_len += value.len() + 2;
                 }
                 // Maximum Packet Size -> Connect, Connack
                 0x27 => {

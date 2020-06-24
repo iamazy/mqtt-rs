@@ -40,7 +40,6 @@ impl FixedHeader {
     }
 
     pub fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte))?;
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;
         if self.retain {
@@ -50,8 +49,9 @@ impl FixedHeader {
         if self.dup {
             byte |= 0b0000_1000;
         }
-        len += 1;
+        let mut len = 1;
         buf.put_u8(byte);
+        len += write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte))?;
         Ok(len)
     }
 }
