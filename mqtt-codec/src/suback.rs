@@ -17,8 +17,7 @@ impl FromToBuf<SubAck> for SubAck {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.suback_variable_header.to_buf(buf)?;
-        let mut payload = self.payload.clone();
-        for reason_code in payload {
+        for reason_code in self.payload.clone() {
             buf.put_u8(reason_code.to_u8());
             len += 1;
         }
@@ -71,7 +70,7 @@ impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
+    use bytes::{BytesMut};
     use crate::frame::FixedHeader;
     use crate::packet::{PacketType, PacketId};
     use crate::publish::Qos;
@@ -79,7 +78,6 @@ mod test {
     use crate::{Mqtt5Property, PropertyValue, FromToBuf};
     use std::collections::HashMap;
     use crate::subscribe::SubscribeReasonCode;
-    use crate::decoder::write_variable_bytes;
 
     #[test]
     fn test_suback() {

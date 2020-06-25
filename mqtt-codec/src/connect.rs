@@ -1,8 +1,7 @@
-use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property};
+use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property, write_variable_bytes, read_string, write_string, read_bytes, write_bytes};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
-use crate::decoder::{read_string, read_bytes, write_string, write_bytes, write_variable_bytes};
 use crate::frame::FixedHeader;
 
 pub struct Connect {

@@ -1,8 +1,7 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
-use crate::{Error, FromToU8};
+use crate::{Error, FromToU8, write_variable_bytes, read_variable_bytes};
 use bytes::{BytesMut, Buf, BufMut};
-use crate::decoder::{read_variable_bytes, write_variable_bytes};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedHeader {

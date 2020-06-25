@@ -1,9 +1,8 @@
 use crate::frame::FixedHeader;
 use crate::packet::PacketId;
-use crate::{Mqtt5Property, FromToU8, FromToBuf, Error};
+use crate::{Mqtt5Property, FromToU8, FromToBuf, Error, write_string, read_string};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
-use crate::decoder::{read_string, write_string};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
@@ -202,8 +201,7 @@ impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
 mod test {
     use bytes::{BytesMut, BufMut};
     use crate::subscribe::SubscriptionOptions;
-    use crate::decoder::{read_string, write_string};
-    use crate::{FromToBuf};
+    use crate::{FromToBuf, read_string, write_string};
 
     #[test]
     fn test_subscribe_payload() {

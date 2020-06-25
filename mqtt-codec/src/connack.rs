@@ -1,9 +1,8 @@
 use crate::connect::ConnectReasonCode;
-use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, PropertyValue};
+use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, PropertyValue, write_variable_bytes};
 use crate::frame::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
-use crate::decoder::write_variable_bytes;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
