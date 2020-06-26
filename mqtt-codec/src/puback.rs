@@ -1,7 +1,7 @@
 use crate::frame::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::publish::Qos;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,8 +18,12 @@ impl FromToBuf<PubAck> for PubAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubAck, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse PubAck Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::PUBACK);
+        assert_eq!(fixed_header.dup, false, "The dup of PubAck Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubAck Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of PubAck Fixed Header must be set to false");
         let puback_variable_header = PubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse PubAck Variable Header");
         Ok(PubAck {
@@ -37,6 +41,22 @@ pub struct PubAckVariableHeader {
     puback_property: Mqtt5Property
 }
 
+impl PubAckVariableHeader {
+
+    fn check_puback_property(puback_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in puback_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("PubAck Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+
+}
+
 impl FromToBuf<PubAckVariableHeader> for PubAckVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
@@ -49,7 +69,8 @@ impl FromToBuf<PubAckVariableHeader> for PubAckVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<PubAckVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
         let puback_reason_code = PubAckReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubAck Reason Code");
-        let puback_property = Mqtt5Property::from_buf(buf).expect("Failed to parse PubAck Property");
+        let mut puback_property = Mqtt5Property::from_buf(buf).expect("Failed to parse PubAck Property");
+        PubAckVariableHeader::check_puback_property(&mut puback_property);
         Ok(PubAckVariableHeader {
             packet_id,
             puback_reason_code,

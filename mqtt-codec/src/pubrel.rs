@@ -1,5 +1,5 @@
 use crate::frame::FixedHeader;
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -18,10 +18,14 @@ impl FromToBuf<PubRel> for PubRel {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRel, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
-            .expect("Failed to parse PubAck Fixed Header");
+        let fixed_header = FixedHeader::from_buf(buf)
+            .expect("Failed to parse PubRel Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::PUBREL);
+        assert_eq!(fixed_header.dup, false, "The dup of PubRel Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of PubRel Fixed Header must be set to be AtLeastOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of PubRel Fixed Header must be set to false");
         let pubrel_variable_header = PubRelVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Variable Header");
+            .expect("Failed to parse PubRel Variable Header");
         Ok(PubRel {
             fixed_header,
             pubrel_variable_header
@@ -34,6 +38,21 @@ pub struct PubRelVariableHeader {
     packet_id: PacketId,
     pubrel_reason_code: PubRelReasonCode,
     pubrel_property: Mqtt5Property,
+}
+
+impl PubRelVariableHeader {
+
+    fn check_pubrel_property(pubrel_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in pubrel_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("PubRel Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
 }
 
 impl FromToBuf<PubRelVariableHeader> for PubRelVariableHeader {

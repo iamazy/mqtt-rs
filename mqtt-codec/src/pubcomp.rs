@@ -1,5 +1,5 @@
 use crate::frame::FixedHeader;
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -18,10 +18,14 @@ impl FromToBuf<PubComp> for PubComp {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubComp, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
-            .expect("Failed to parse PubAck Fixed Header");
+        let fixed_header = FixedHeader::from_buf(buf)
+            .expect("Failed to parse PubComp Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::PUBCOMP);
+        assert_eq!(fixed_header.dup, false, "The dup of PubComp Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubComp Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of PubComp Fixed Header must be set to false");
         let pubcomp_variable_header = PubCompVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Variable Header");
+            .expect("Failed to parse PubComp Variable Header");
         Ok(PubComp {
             fixed_header,
             pubcomp_variable_header
@@ -34,6 +38,21 @@ pub struct PubCompVariableHeader {
     packet_id: PacketId,
     pubcomp_reason_code: PubCompReasonCode,
     pubcomp_property: Mqtt5Property,
+}
+
+impl PubCompVariableHeader {
+
+    fn check_pubcomp_property(pubcomp_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in pubcomp_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("PubComp Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
 }
 
 impl FromToBuf<PubCompVariableHeader> for PubCompVariableHeader {
@@ -49,8 +68,9 @@ impl FromToBuf<PubCompVariableHeader> for PubCompVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let pubcomp_reason_code = PubCompReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse PubComp Reason Code");
-        let pubcomp_property = Mqtt5Property::from_buf(buf)
+        let mut pubcomp_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse PubComp Properties");
+        PubCompVariableHeader::check_pubcomp_property(&mut pubcomp_property);
         Ok(PubCompVariableHeader {
             packet_id,
             pubcomp_reason_code,

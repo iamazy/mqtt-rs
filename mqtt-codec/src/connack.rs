@@ -3,6 +3,7 @@ use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, PropertyValue, write_vari
 use crate::frame::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
+use crate::packet::PacketType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
@@ -18,7 +19,11 @@ impl FromToBuf<ConnAck> for ConnAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnAck, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false).expect("Failed to parse Connack Fixed Header");
+        let fixed_header = FixedHeader::from_buf(buf).expect("Failed to parse Connack Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::CONNACK);
+        assert_eq!(fixed_header.dup, false, "The dup of ConnAck Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of ConnAck Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of ConnAck Fixed Header must be set to false");
         let connack_variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
         Ok(ConnAck {
             fixed_header,
@@ -36,7 +41,6 @@ pub struct ConnAckVariableHeader {
 
 impl ConnAckVariableHeader {
 
-    // TODO
     fn check_connack_property(connack_property: &mut Mqtt5Property) -> Result<(), Error> {
         for key in connack_property.properties.keys() {
             let key = *key;

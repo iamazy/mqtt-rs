@@ -3,7 +3,9 @@ use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::frame::FixedHeader;
+use crate::packet::PacketType;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
     fixed_header: FixedHeader,
     variable_header: ConnectVariableHeader,
@@ -20,10 +22,12 @@ impl FromToBuf<Connect> for Connect {
 
     fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
         // parse fixed header
-        let qos = Qos::from_u8(0).expect("Failed to parse Qos");
-        let fixed_header = FixedHeader::new(buf, false, qos, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Fixed Header");
-
+        assert_eq!(fixed_header.packet_type, PacketType::CONNECT);
+        assert_eq!(fixed_header.dup, false, "The dup of Connect Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Connect Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of Connect Fixed Header must be set to false");
         // parse variable header
         let connect_variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
@@ -39,7 +43,7 @@ impl FromToBuf<Connect> for Connect {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConnectVariableHeader {
     pub protocol: Protocol,
     pub connect_flags: ConnectFlags,

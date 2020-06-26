@@ -104,12 +104,3 @@ impl FromToU8<PacketType> for PacketType {
         }
     }
 }
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn parse_connect_fixed_header() {
-
-    }
-}

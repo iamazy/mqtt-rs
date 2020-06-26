@@ -1,6 +1,6 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
-use crate::{Error, FromToU8, write_variable_bytes, read_variable_bytes};
+use crate::{Error, FromToU8, write_variable_bytes, read_variable_bytes, FromToBuf};
 use bytes::{BytesMut, Buf, BufMut};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,33 +12,8 @@ pub struct FixedHeader {
     pub(crate) remaining_length: usize
 }
 
-impl FixedHeader {
-
-    pub(crate) fn new(buf: &mut BytesMut, dup: bool, qos: Qos, retain: bool) -> Result<FixedHeader, Error> {
-        let fixed_header_byte = buf.get_u8();
-        let packet_type = PacketType::from_u8(fixed_header_byte >> 4)
-            .expect("Failed to parse Packet Type in Fixed Header");
-        if dup != ((fixed_header_byte >> 3) & 0x01 == 1) {
-            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Dup again".to_string()))
-        }
-        if qos != (Qos::from_u8((fixed_header_byte >> 1) & 0x03)?) {
-            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Qos again".to_string()))
-        }
-        if retain != (fixed_header_byte & 0x01 == 1) {
-            return Err(Error::MalformedFixedHeader("It's a Malformed FixedHeader, Please check it Retain again".to_string()))
-        }
-        let remaining_length = read_variable_bytes(buf)
-            .expect("Failed to parse Fixed Header Remaining Length").0;
-        Ok(FixedHeader {
-            packet_type,
-            dup,
-            qos,
-            retain,
-            remaining_length,
-        })
-    }
-
-    pub fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+impl FromToBuf<FixedHeader> for FixedHeader {
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;
         if self.retain {
@@ -52,5 +27,23 @@ impl FixedHeader {
         buf.put_u8(byte);
         len += write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte))?;
         Ok(len)
+    }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<FixedHeader, Error> {
+        let fixed_header_byte = buf.get_u8();
+        let packet_type = PacketType::from_u8(fixed_header_byte >> 4)
+            .expect("Failed to parse Packet Type in Fixed Header");
+        let dup = (fixed_header_byte >> 3) & 0x01 == 1;
+        let qos = Qos::from_u8((fixed_header_byte >> 1) & 0x03)?;
+        let retain = fixed_header_byte & 0x01 == 1;
+        let remaining_length = read_variable_bytes(buf)
+            .expect("Failed to parse Fixed Header Remaining Length").0;
+        Ok(FixedHeader {
+            packet_type,
+            dup,
+            qos,
+            retain,
+            remaining_length,
+        })
     }
 }

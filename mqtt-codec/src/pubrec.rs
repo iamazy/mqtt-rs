@@ -1,5 +1,5 @@
 use crate::frame::FixedHeader;
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -18,10 +18,14 @@ impl FromToBuf<PubRec> for PubRec {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRec, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
-            .expect("Failed to parse PubAck Fixed Header");
+        let fixed_header = FixedHeader::from_buf(buf)
+            .expect("Failed to parse PubRec Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::PUBREC);
+        assert_eq!(fixed_header.dup, false, "The dup of PubRec Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubRec Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of PubRec Fixed Header must be set to false");
         let pubrec_variable_header = PubRecVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Variable Header");
+            .expect("Failed to parse PubRec Variable Header");
         Ok(PubRec {
             fixed_header,
             pubrec_variable_header
@@ -34,6 +38,22 @@ pub struct PubRecVariableHeader {
     packet_id: PacketId,
     pubrec_reason_code: PubRecReasonCode,
     pubrec_property: Mqtt5Property,
+}
+
+impl PubRecVariableHeader {
+
+    fn check_pubrec_property(pubrec_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in pubrec_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("PubRec Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+
 }
 
 impl FromToBuf<PubRecVariableHeader> for PubRecVariableHeader {
@@ -49,8 +69,9 @@ impl FromToBuf<PubRecVariableHeader> for PubRecVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let pubrec_reason_code = PubRecReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse PubRec Reason Code");
-        let pubrec_property = Mqtt5Property::from_buf(buf)
+        let mut pubrec_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse PubRec Properties");
+        PubRecVariableHeader::check_pubrec_property(&mut pubrec_property);
         Ok(PubRecVariableHeader {
             packet_id,
             pubrec_reason_code,
@@ -114,5 +135,14 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
             153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test_pubrec() {
+
     }
 }

@@ -1,4 +1,4 @@
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, write_string, read_string};
 use crate::frame::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
@@ -7,7 +7,7 @@ use crate::publish::Qos;
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubscribe {
     fixed_header: FixedHeader,
-    unsubscribe_variable_header: UnsubscribeVariableHeader,
+    unsubscribe_variable_header: UnSubscribeVariableHeader,
     payload: Vec<String>
 }
 
@@ -23,9 +23,13 @@ impl FromToBuf<UnSubscribe> for UnSubscribe {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubscribe, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtLeastOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Unsubscribe Fixed Header");
-        let unsubscribe_variable_header = UnsubscribeVariableHeader::from_buf(buf)
+        assert_eq!(fixed_header.packet_type, PacketType::UNSUBSCRIBE);
+        assert_eq!(fixed_header.dup, false, "The dup of Unsubscribe Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of Unsubscribe Fixed Header must be set to be AtLeastOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of Unsubscribe Fixed Header must be set to false");
+        let unsubscribe_variable_header = UnSubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Unsubscribe Variable Header");
         let mut payload_len = fixed_header.remaining_length - 2 - unsubscribe_variable_header.unsubscribe_property.property_length;
         let mut payload = Vec::<String>::new();
@@ -44,23 +48,39 @@ impl FromToBuf<UnSubscribe> for UnSubscribe {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct UnsubscribeVariableHeader {
+pub struct UnSubscribeVariableHeader {
     packet_id: PacketId,
     unsubscribe_property: Mqtt5Property
 }
 
-impl FromToBuf<UnsubscribeVariableHeader> for UnsubscribeVariableHeader {
+impl UnSubscribeVariableHeader {
+
+    fn check_unsubscribe_property(unsubscribe_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in unsubscribe_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("UnSubscribe Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+}
+
+impl FromToBuf<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         len += self.unsubscribe_property.to_buf(buf)?;
         Ok(len)
     }
 
-    fn from_buf(buf: &mut BytesMut) -> Result<UnsubscribeVariableHeader, Error> {
+    fn from_buf(buf: &mut BytesMut) -> Result<UnSubscribeVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let unsubscribe_property = Mqtt5Property::from_buf(buf)
+        let mut unsubscribe_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Unsubscribe Properties");
-        Ok(UnsubscribeVariableHeader {
+        UnSubscribeVariableHeader::check_unsubscribe_property(&mut unsubscribe_property);
+        Ok(UnSubscribeVariableHeader {
             packet_id,
             unsubscribe_property
         })

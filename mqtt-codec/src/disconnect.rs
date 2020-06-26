@@ -2,6 +2,7 @@ use crate::frame::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
+use crate::packet::PacketType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disconnect {
@@ -17,8 +18,12 @@ impl FromToBuf<Disconnect> for Disconnect {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Disconnect, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Disconnect Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::DISCONNECT);
+        assert_eq!(fixed_header.dup, false, "The dup of Disconnect Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Disconnect Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of Disconnect Fixed Header must be set to false");
         let disconnect_variable_header = DisconnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Disconnect Variable Header");
         Ok(Disconnect {
@@ -34,6 +39,21 @@ pub struct DisconnectVariableHeader {
     disconnect_property: Mqtt5Property
 }
 
+impl DisconnectVariableHeader {
+
+    fn check_disconnect_property(disconnect_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in disconnect_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x11 | 0x1C | 0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("Disconnect Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+}
+
 impl FromToBuf<DisconnectVariableHeader> for DisconnectVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         buf.put_u8(self.reason_code.to_u8());
@@ -45,8 +65,9 @@ impl FromToBuf<DisconnectVariableHeader> for DisconnectVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<DisconnectVariableHeader, Error> {
         let reason_code = DisconnectReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse Disconnect Reason Code");
-        let disconnect_property = Mqtt5Property::from_buf(buf)
+        let mut disconnect_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Disconnect Properties");
+        DisconnectVariableHeader::check_disconnect_property(&mut disconnect_property);
         Ok(DisconnectVariableHeader {
             reason_code,
             disconnect_property

@@ -1,4 +1,4 @@
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, Error, FromToBuf, FromToU8};
 use crate::frame::FixedHeader;
 use crate::subscribe::SubscribeReasonCode;
@@ -25,8 +25,12 @@ impl FromToBuf<SubAck> for SubAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubAck, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse SubAck Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::SUBACK);
+        assert_eq!(fixed_header.dup, false, "The dup of SubAck Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of SubAck Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of SubAck Fixed Header must be set to false");
         let suback_variable_header = SubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse SubAck Variable Header");
         let mut payload_len = fixed_header.remaining_length - 2 - suback_variable_header.suback_property.property_length;
@@ -49,6 +53,21 @@ pub struct SubAckVariableHeader {
     suback_property: Mqtt5Property,
 }
 
+impl SubAckVariableHeader {
+
+    fn check_suback_property(suback_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in suback_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("SubAck Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+
+}
 
 impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
@@ -59,8 +78,9 @@ impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubAckVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let suback_property = Mqtt5Property::from_buf(buf)
+        let mut suback_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse SubAck Properties");
+        SubAckVariableHeader::check_suback_property(&mut suback_property);
         Ok(SubAckVariableHeader {
             packet_id,
             suback_property

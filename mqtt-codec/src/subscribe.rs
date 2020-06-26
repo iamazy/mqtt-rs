@@ -1,5 +1,5 @@
 use crate::frame::FixedHeader;
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, FromToU8, FromToBuf, Error, write_string, read_string};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
@@ -25,8 +25,12 @@ impl FromToBuf<Subscribe> for Subscribe {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Subscribe, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtLeastOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::SUBSCRIBE);
+        assert_eq!(fixed_header.dup, false, "The dup of Subscribe Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of Subscribe Fixed Header must be set to be AtLeastOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of Subscribe Fixed Header must be set to false");
         let subscribe_variable_header = SubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Variable Header");
         let mut remaining = fixed_header.remaining_length - subscribe_variable_header.subscribe_property.property_length - 2;
@@ -57,7 +61,7 @@ pub struct SubscribeVariableHeader {
 
 impl SubscribeVariableHeader {
 
-    fn check_connack_property(subscribe_property: &mut Mqtt5Property) -> Result<(), Error> {
+    fn check_subscribe_property(subscribe_property: &mut Mqtt5Property) -> Result<(), Error> {
         for key in subscribe_property.properties.keys() {
             let key = *key;
             match key {
@@ -83,7 +87,7 @@ impl FromToBuf<SubscribeVariableHeader> for SubscribeVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let mut subscribe_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Subscribe Properties");
-        SubscribeVariableHeader::check_connack_property(&mut subscribe_property);
+        SubscribeVariableHeader::check_subscribe_property(&mut subscribe_property);
         Ok(SubscribeVariableHeader {
             packet_id,
             subscribe_property

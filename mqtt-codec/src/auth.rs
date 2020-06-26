@@ -2,6 +2,7 @@ use crate::frame::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
+use crate::packet::PacketType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Auth {
@@ -17,8 +18,12 @@ impl FromToBuf<Auth> for Auth {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Auth, Error> {
-        let fixed_header = FixedHeader::new(buf, false, Qos::AtMostOnce, false)
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Auth Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::AUTH);
+        assert_eq!(fixed_header.dup, false, "The dup of Auth Fixed Header must be set to false");
+        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Auth Fixed Header must be set to be AtMostOnce");
+        assert_eq!(fixed_header.retain, false, "The retain of Auth Fixed Header must be set to false");
         let auth_variable_header = AuthVariableHeader::from_buf(buf)
             .expect("Failed to parse Auth Variable Header");
         Ok(Auth {
@@ -33,6 +38,21 @@ impl FromToBuf<Auth> for Auth {
 pub struct AuthVariableHeader {
     reason_code: AuthenticateReasonCode,
     auth_property: Mqtt5Property
+}
+
+impl AuthVariableHeader {
+
+    fn check_auth_property(auth_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in auth_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x15 | 0x16 | 0x1F | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("Auth Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
 }
 
 impl FromToBuf<AuthVariableHeader> for AuthVariableHeader {

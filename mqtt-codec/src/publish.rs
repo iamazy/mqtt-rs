@@ -1,6 +1,6 @@
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf, write_string, read_string};
 use crate::frame::FixedHeader;
-use crate::packet::PacketId;
+use crate::packet::{PacketId, PacketType};
 use bytes::{Bytes, BytesMut, BufMut, Buf};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,8 +20,13 @@ impl FromToBuf<Publish> for Publish {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Publish, Error> {
-        let fixed_header = FixedHeader::new(buf, true, Qos::ExactlyOnce, true)
+        // If the DUP flag is set to 0, it indicates that this is the first occasion that the Client or Server has attempted to send this PUBLISH packet.
+        // If the DUP flag is set to 1, it indicates that this might be re-delivery of an earlier attempt to send the packet
+        // The DUP flag MUST be set to 1 by the Client or Server when it attempts to re-deliver a PUBLISH packet.
+        // The DUP flag MUST be set to 0 for all QoS 0 messages
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Publish Fixed Header");
+        assert_eq!(fixed_header.packet_type, PacketType::PUBLISH);
         let publish_variable_header = PublishVariableHeader::from_buf(buf)
             .expect("Failed to parse Publish Variable Header");
         let payload_len = fixed_header.remaining_length
