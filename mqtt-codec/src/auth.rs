@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -7,13 +7,13 @@ use crate::packet::PacketType;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Auth {
     fixed_header: FixedHeader,
-    auth_variable_header: AuthVariableHeader
+    variable_header: AuthVariableHeader
 }
 
 impl FromToBuf<Auth> for Auth {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.auth_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         Ok(len)
     }
 
@@ -28,7 +28,7 @@ impl FromToBuf<Auth> for Auth {
             .expect("Failed to parse Auth Variable Header");
         Ok(Auth {
             fixed_header,
-            auth_variable_header
+            variable_header: auth_variable_header
         })
 
     }

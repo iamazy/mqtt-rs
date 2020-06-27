@@ -2,7 +2,7 @@ use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property, write_vari
 use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::packet::PacketType;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,7 +31,6 @@ impl FromToBuf<Connect> for Connect {
         // parse variable header
         let connect_variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
-
         // parse connect payload
         let connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
@@ -116,9 +115,7 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnectVariableHeader, Error> {
-        let protocol_name = read_string(buf).expect("Failed to parse Protocol Name");
-        let protocol_level = buf.get_u8();
-        let protocol = Protocol::new(&protocol_name, protocol_level).expect("Failed to parse Protocol");
+        let protocol = Protocol::from_buf(buf).expect("Failed to parse Protocol");
         let connect_flags = ConnectFlags::from_buf(buf).expect("Failed to parse Connect Flag");
         let keep_alive = buf.get_u16();
 
@@ -423,7 +420,7 @@ mod test {
         buf.put_u8(0);
         buf.put_u8(10);
         buf.put_u8(5);
-        buf.put_u8(2);
+        buf.put_u8(17);
         buf.put_u32(10);
 
         let variable_header = ConnectVariableHeader::from_buf(&mut buf)

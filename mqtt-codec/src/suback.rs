@@ -1,6 +1,6 @@
 use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, Error, FromToBuf, FromToU8};
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::subscribe::SubscribeReasonCode;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -8,7 +8,7 @@ use crate::publish::Qos;
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubAck {
     fixed_header: FixedHeader,
-    suback_variable_header: SubAckVariableHeader,
+    variable_header: SubAckVariableHeader,
     payload: Vec<SubscribeReasonCode>
 }
 
@@ -16,7 +16,7 @@ impl FromToBuf<SubAck> for SubAck {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.suback_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         for reason_code in self.payload.clone() {
             buf.put_u8(reason_code.to_u8());
             len += 1;
@@ -41,7 +41,7 @@ impl FromToBuf<SubAck> for SubAck {
         }
         Ok(SubAck {
             fixed_header,
-            suback_variable_header,
+            variable_header: suback_variable_header,
             payload
         })
     }
@@ -91,7 +91,7 @@ impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
 #[cfg(test)]
 mod test {
     use bytes::{BytesMut};
-    use crate::frame::FixedHeader;
+    use crate::fixed_header::FixedHeader;
     use crate::packet::{PacketType, PacketId};
     use crate::publish::Qos;
     use crate::suback::{SubAckVariableHeader, SubAck};
@@ -132,7 +132,7 @@ mod test {
 
         let suback = SubAck {
             fixed_header,
-            suback_variable_header,
+            variable_header: suback_variable_header,
             payload
         };
 

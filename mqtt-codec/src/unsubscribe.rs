@@ -1,13 +1,13 @@
 use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, write_string, read_string};
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubscribe {
     fixed_header: FixedHeader,
-    unsubscribe_variable_header: UnSubscribeVariableHeader,
+    variable_header: UnSubscribeVariableHeader,
     payload: Vec<String>
 }
 
@@ -15,7 +15,7 @@ impl FromToBuf<UnSubscribe> for UnSubscribe {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.unsubscribe_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         for topic_filter in self.payload.clone() {
             len += write_string(topic_filter, buf);
         }
@@ -41,7 +41,7 @@ impl FromToBuf<UnSubscribe> for UnSubscribe {
         }
         Ok(UnSubscribe {
             fixed_header,
-            unsubscribe_variable_header,
+            variable_header: unsubscribe_variable_header,
             payload
         })
     }

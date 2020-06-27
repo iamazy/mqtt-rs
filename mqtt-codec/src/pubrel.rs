@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketId, PacketType};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
@@ -7,13 +7,13 @@ use crate::publish::Qos;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRel {
     fixed_header: FixedHeader,
-    pubrel_variable_header: PubRelVariableHeader
+    variable_header: PubRelVariableHeader
 }
 
 impl FromToBuf<PubRel> for PubRel {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.pubrel_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         Ok(len)
     }
 
@@ -28,7 +28,7 @@ impl FromToBuf<PubRel> for PubRel {
             .expect("Failed to parse PubRel Variable Header");
         Ok(PubRel {
             fixed_header,
-            pubrel_variable_header
+            variable_header: pubrel_variable_header
         })
     }
 }

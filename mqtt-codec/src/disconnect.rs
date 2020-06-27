@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -7,13 +7,13 @@ use crate::packet::PacketType;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disconnect {
     fixed_header: FixedHeader,
-    disconnect_variable_header: DisconnectVariableHeader
+    variable_header: DisconnectVariableHeader
 }
 
 impl FromToBuf<Disconnect> for Disconnect {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.disconnect_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         Ok(len)
     }
 
@@ -28,7 +28,7 @@ impl FromToBuf<Disconnect> for Disconnect {
             .expect("Failed to parse Disconnect Variable Header");
         Ok(Disconnect {
             fixed_header,
-            disconnect_variable_header
+            variable_header: disconnect_variable_header
         })
     }
 }

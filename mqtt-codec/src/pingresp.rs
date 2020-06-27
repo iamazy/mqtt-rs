@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::{FromToBuf, Error};
 use bytes::{BufMut, BytesMut};
 use crate::publish::Qos;

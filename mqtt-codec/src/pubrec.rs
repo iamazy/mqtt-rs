@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketId, PacketType};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
@@ -7,13 +7,13 @@ use crate::publish::Qos;
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRec {
     fixed_header: FixedHeader,
-    pubrec_variable_header: PubRecVariableHeader
+    variable_header: PubRecVariableHeader
 }
 
 impl FromToBuf<PubRec> for PubRec {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.pubrec_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         Ok(len)
     }
 
@@ -24,11 +24,11 @@ impl FromToBuf<PubRec> for PubRec {
         assert_eq!(fixed_header.dup, false, "The dup of PubRec Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubRec Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of PubRec Fixed Header must be set to false");
-        let pubrec_variable_header = PubRecVariableHeader::from_buf(buf)
+        let variable_header = PubRecVariableHeader::from_buf(buf)
             .expect("Failed to parse PubRec Variable Header");
         Ok(PubRec {
             fixed_header,
-            pubrec_variable_header
+            variable_header
         })
     }
 }

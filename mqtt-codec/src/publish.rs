@@ -1,19 +1,19 @@
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf, write_string, read_string};
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketId, PacketType};
 use bytes::{Bytes, BytesMut, BufMut, Buf};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
     fixed_header: FixedHeader,
-    publish_variable_header: PublishVariableHeader,
+    variable_header: PublishVariableHeader,
     payload: Bytes,
 }
 
 impl FromToBuf<Publish> for Publish {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.publish_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         buf.put_slice(self.payload.as_ref());
         len += self.payload.len();
         Ok(len)
@@ -37,7 +37,7 @@ impl FromToBuf<Publish> for Publish {
         let payload = buf.split_to(payload_len).to_bytes();
         Ok(Publish {
             fixed_header,
-            publish_variable_header,
+            variable_header: publish_variable_header,
             payload,
         })
     }

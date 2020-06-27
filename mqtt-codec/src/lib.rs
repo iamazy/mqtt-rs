@@ -1,5 +1,5 @@
 mod packet;
-mod frame;
+mod fixed_header;
 mod publish;
 mod puback;
 mod pubrec;

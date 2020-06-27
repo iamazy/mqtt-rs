@@ -1,4 +1,4 @@
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use crate::unsubscribe::UnSubscribeReasonCode;
 use crate::packet::{PacketId, PacketType};
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8};
@@ -8,14 +8,14 @@ use crate::publish::Qos;
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubAck {
     fixed_header: FixedHeader,
-    unsuback_variable_header: UnSubAckVariableHeader,
+    variable_header: UnSubAckVariableHeader,
     payload: Vec<UnSubscribeReasonCode>
 }
 
 impl FromToBuf<UnSubAck> for UnSubAck {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.unsuback_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         for reason_code in self.payload.clone() {
             buf.put_u8(reason_code.to_u8());
             len += 1;
@@ -40,7 +40,7 @@ impl FromToBuf<UnSubAck> for UnSubAck {
         }
         Ok(UnSubAck {
             fixed_header,
-            unsuback_variable_header,
+            variable_header: unsuback_variable_header,
             payload
         })
 

@@ -1,6 +1,6 @@
 use crate::connect::ConnectReasonCode;
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, PropertyValue, write_variable_bytes};
-use crate::frame::FixedHeader;
+use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 use crate::packet::PacketType;
@@ -8,13 +8,13 @@ use crate::packet::PacketType;
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
     fixed_header: FixedHeader,
-    connack_variable_header: ConnAckVariableHeader,
+    variable_header: ConnAckVariableHeader,
 }
 
 impl FromToBuf<ConnAck> for ConnAck {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.connack_variable_header.to_buf(buf)?;
+        len += self.variable_header.to_buf(buf)?;
         Ok(len)
     }
 
@@ -27,7 +27,7 @@ impl FromToBuf<ConnAck> for ConnAck {
         let connack_variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
         Ok(ConnAck {
             fixed_header,
-            connack_variable_header
+            variable_header: connack_variable_header
         })
     }
 }

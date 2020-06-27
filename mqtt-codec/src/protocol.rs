@@ -1,20 +1,14 @@
 use crate::error::Error;
-use bytes::BufMut;
+use bytes::{BufMut, BytesMut, Buf};
+use crate::{FromToBuf, read_string};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
     MQTT5
 }
 
-impl Protocol {
-    pub(crate) fn new(name: &str, level: u8) -> Result<Protocol, Error> {
-        match (name, level) {
-            ("MQTT", 5u8) => Ok(Protocol::MQTT5),
-            _ => Err(Error::InvalidProtocol(name.into(), level))
-        }
-    }
-
-    pub(crate) fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+impl FromToBuf<Protocol> for Protocol {
+    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         match self {
             Protocol::MQTT5 => {
                 // offset: 0, length: 4, body: MQTT, level: 5
@@ -24,16 +18,28 @@ impl Protocol {
             }
         }
     }
+
+    fn from_buf(buf: &mut BytesMut) -> Result<Protocol, Error> {
+        let name = read_string(buf)
+            .expect("Failed to parse Protocol Name");
+        let name = name.as_ref();
+        let level = buf.get_u8();
+        match (name, level) {
+            ("MQTT", 5u8) => Ok(Protocol::MQTT5),
+            _ => Err(Error::InvalidProtocol(name.into(), level))
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::protocol::Protocol;
+    use crate::FromToBuf;
 
     #[test]
     fn test_protocol() {
         let buf = &mut Vec::<u8>::with_capacity(1024);
-        let protocol = Protocol::new("MQTT", 5).unwrap();
+        let protocol = Protocol::MQTT5;
         let len = protocol.to_buf(buf).unwrap();
         println!("len: {}, buf: {:?}",len, buf);
     }
