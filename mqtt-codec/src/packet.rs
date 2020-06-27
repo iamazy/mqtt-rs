@@ -1,6 +1,8 @@
 use std::num::NonZeroU16;
-use bytes::BufMut;
-use crate::{Error, FromToU8};
+use bytes::{BufMut, BytesMut};
+use crate::{Error, FromToU8, FromToBuf};
+use crate::fixed_header::FixedHeader;
+use crate::{connect, connack, publish, puback, pubrec, pubrel, pubcomp, pingreq, pingresp, subscribe, suback, unsubscribe, unsuback, disconnect, auth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketId(NonZeroU16);
@@ -103,4 +105,23 @@ impl FromToU8<PacketType> for PacketType {
             n => Err(Error::InvalidPacketType(n))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Packet {
+    Connect(connect::Connect),
+    ConnAck(connack::ConnAck),
+    Publish(publish::Publish),
+    PubAck(puback::PubAck),
+    PubRec(pubrec::PubRec),
+    PubRel(pubrel::PubRel),
+    PubComp(pubcomp::PubComp),
+    Subscribe(subscribe::Subscribe),
+    SubAck(suback::SubAck),
+    UnSubscribe(unsubscribe::UnSubscribe),
+    UnSubAck(unsuback::UnSubAck),
+    PingReq(pingreq::PingReq),
+    PingResp(pingresp::PingResp),
+    Disconnect(disconnect::Disconnect),
+    Auth(auth::Auth)
 }
