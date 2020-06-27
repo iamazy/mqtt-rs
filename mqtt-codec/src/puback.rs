@@ -70,7 +70,7 @@ impl FromToBuf<PubAckVariableHeader> for PubAckVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let puback_reason_code = PubAckReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubAck Reason Code");
         let mut puback_property = Mqtt5Property::from_buf(buf).expect("Failed to parse PubAck Property");
-        PubAckVariableHeader::check_puback_property(&mut puback_property);
+        PubAckVariableHeader::check_puback_property(&mut puback_property)?;
         Ok(PubAckVariableHeader {
             packet_id,
             puback_reason_code,

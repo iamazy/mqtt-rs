@@ -103,7 +103,7 @@ impl FromToBuf<ConnAckVariableHeader> for ConnAckVariableHeader {
             .expect("Not a valid Connect Reason Code");
         let mut connack_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse ConnAck Properties");
-        ConnAckVariableHeader::check_connack_property(&mut connack_property);
+        ConnAckVariableHeader::check_connack_property(&mut connack_property)?;
         Ok(ConnAckVariableHeader {
             connack_flags,
             connect_reason_code,

@@ -50,6 +50,21 @@ pub struct PublishVariableHeader {
     publish_property: Mqtt5Property,
 }
 
+impl PublishVariableHeader {
+
+    fn check_publish_property(publish_property: &mut Mqtt5Property) -> Result<(), Error> {
+
+        for key in publish_property.properties.keys() {
+            let key = *key;
+            match key {
+                0x01 | 0x02 | 0x03 | 0x08 | 0x09 | 0x0B | 0x23 | 0x26 => {},
+                _ => return Err(Error::InvalidPropertyType("Publish Properties contains a invalid property".to_string()))
+            }
+        }
+        Ok(())
+    }
+}
+
 impl FromToBuf<PublishVariableHeader> for PublishVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = write_string(self.topic_name.clone(), buf);
@@ -61,7 +76,8 @@ impl FromToBuf<PublishVariableHeader> for PublishVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<PublishVariableHeader, Error> {
         let topic_name = read_string(buf).expect("Failed to parse Topic Name");
         let packet_id = PacketId::new(buf.get_u16());
-        let publish_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Publish Properties");
+        let mut publish_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Publish Properties");
+        PublishVariableHeader::check_publish_property(&mut publish_property)?;
         Ok(PublishVariableHeader {
             topic_name,
             packet_id,

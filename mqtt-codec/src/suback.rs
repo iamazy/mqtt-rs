@@ -80,7 +80,7 @@ impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let mut suback_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse SubAck Properties");
-        SubAckVariableHeader::check_suback_property(&mut suback_property);
+        SubAckVariableHeader::check_suback_property(&mut suback_property)?;
         Ok(SubAckVariableHeader {
             packet_id,
             suback_property

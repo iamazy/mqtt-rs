@@ -77,8 +77,9 @@ impl FromToBuf<UnSubAckVariableHeader> for UnSubAckVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAckVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let unsuback_property = Mqtt5Property::from_buf(buf)
+        let mut unsuback_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse UnSubAck Properties");
+        UnSubAckVariableHeader::check_unsuback_property(&mut unsuback_property)?;
         Ok(UnSubAckVariableHeader {
             packet_id,
             unsuback_property

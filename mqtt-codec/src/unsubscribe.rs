@@ -79,7 +79,7 @@ impl FromToBuf<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let mut unsubscribe_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Unsubscribe Properties");
-        UnSubscribeVariableHeader::check_unsubscribe_property(&mut unsubscribe_property);
+        UnSubscribeVariableHeader::check_unsubscribe_property(&mut unsubscribe_property)?;
         Ok(UnSubscribeVariableHeader {
             packet_id,
             unsubscribe_property

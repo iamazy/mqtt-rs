@@ -70,7 +70,7 @@ impl FromToBuf<PubCompVariableHeader> for PubCompVariableHeader {
             .expect("Failed to parse PubComp Reason Code");
         let mut pubcomp_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse PubComp Properties");
-        PubCompVariableHeader::check_pubcomp_property(&mut pubcomp_property);
+        PubCompVariableHeader::check_pubcomp_property(&mut pubcomp_property)?;
         Ok(PubCompVariableHeader {
             packet_id,
             pubcomp_reason_code,

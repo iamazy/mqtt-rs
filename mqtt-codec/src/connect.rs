@@ -124,7 +124,6 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
 
         let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
         ConnectVariableHeader::check_connect_property(&mut connect_property)?;
-
         Ok(ConnectVariableHeader {
             protocol,
             connect_flags,
@@ -424,7 +423,7 @@ mod test {
         buf.put_u8(0);
         buf.put_u8(10);
         buf.put_u8(5);
-        buf.put_u8(17);
+        buf.put_u8(2);
         buf.put_u32(10);
 
         let variable_header = ConnectVariableHeader::from_buf(&mut buf)

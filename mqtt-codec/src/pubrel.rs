@@ -68,8 +68,9 @@ impl FromToBuf<PubRelVariableHeader> for PubRelVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let pubrel_reason_code = PubRelReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse PubRel Reason Code");
-        let pubrel_property = Mqtt5Property::from_buf(buf)
+        let mut pubrel_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse PubRel Properties");
+        PubRelVariableHeader::check_pubrel_property(&mut pubrel_property)?;
         Ok(PubRelVariableHeader {
             packet_id,
             pubrel_reason_code,

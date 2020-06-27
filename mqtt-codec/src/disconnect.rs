@@ -67,7 +67,7 @@ impl FromToBuf<DisconnectVariableHeader> for DisconnectVariableHeader {
             .expect("Failed to parse Disconnect Reason Code");
         let mut disconnect_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Disconnect Properties");
-        DisconnectVariableHeader::check_disconnect_property(&mut disconnect_property);
+        DisconnectVariableHeader::check_disconnect_property(&mut disconnect_property)?;
         Ok(DisconnectVariableHeader {
             reason_code,
             disconnect_property

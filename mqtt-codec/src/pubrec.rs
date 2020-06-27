@@ -71,7 +71,7 @@ impl FromToBuf<PubRecVariableHeader> for PubRecVariableHeader {
             .expect("Failed to parse PubRec Reason Code");
         let mut pubrec_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse PubRec Properties");
-        PubRecVariableHeader::check_pubrec_property(&mut pubrec_property);
+        PubRecVariableHeader::check_pubrec_property(&mut pubrec_property)?;
         Ok(PubRecVariableHeader {
             packet_id,
             pubrec_reason_code,

@@ -66,8 +66,9 @@ impl FromToBuf<AuthVariableHeader> for AuthVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<AuthVariableHeader, Error> {
         let reason_code = AuthenticateReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse Authenticate Reason Code");
-        let auth_property = Mqtt5Property::from_buf(buf)
+        let mut auth_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Auth Propertoes");
+        AuthVariableHeader::check_auth_property(&mut auth_property)?;
         Ok(AuthVariableHeader {
             reason_code,
             auth_property

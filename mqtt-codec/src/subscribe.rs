@@ -87,7 +87,7 @@ impl FromToBuf<SubscribeVariableHeader> for SubscribeVariableHeader {
         let packet_id = PacketId::new(buf.get_u16());
         let mut subscribe_property = Mqtt5Property::from_buf(buf)
             .expect("Failed to parse Subscribe Properties");
-        SubscribeVariableHeader::check_subscribe_property(&mut subscribe_property);
+        SubscribeVariableHeader::check_subscribe_property(&mut subscribe_property)?;
         Ok(SubscribeVariableHeader {
             packet_id,
             subscribe_property
