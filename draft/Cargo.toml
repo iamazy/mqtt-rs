@@ -1,5 +1,5 @@
 [package]
-name = "draft-rs"
+name = "draft"
 version = "0.1.0"
 authors = ["iamazy <1448588084@qq.com>"]
 edition = "2018"
