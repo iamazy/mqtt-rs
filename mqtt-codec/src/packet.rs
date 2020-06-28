@@ -108,7 +108,7 @@ impl FromToU8<PacketType> for PacketType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Packet {
+pub enum Packets {
     Connect(connect::Connect),
     ConnAck(connack::ConnAck),
     Publish(publish::Publish),
@@ -124,4 +124,12 @@ pub enum Packet {
     PingResp(pingresp::PingResp),
     Disconnect(disconnect::Disconnect),
     Auth(auth::Auth)
+}
+
+pub(crate) trait Packet<R> {
+    fn decode_fixed_header(buf: &mut BytesMut) -> FixedHeader {
+        FixedHeader::from_buf(buf).expect("Failed to parse Fixed Header")
+    }
+
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<R, Error>;
 }

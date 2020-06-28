@@ -3,13 +3,31 @@ use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
-use crate::packet::PacketType;
+use crate::packet::{PacketType, Packet};
+use crate::packet::Packets::ConnAck;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
     fixed_header: FixedHeader,
     variable_header: ConnectVariableHeader,
     payload: ConnectPayload,
+}
+
+impl Packet<Connect> for Connect {
+
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Connect, Error> {
+        // parse variable header
+        let connect_variable_header = ConnectVariableHeader::from_buf(buf)
+            .expect("Failed to parse Connect Variable Header");
+        // parse connect payload
+        let connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
+            .expect("Failed to parse Connect Payload");
+        Ok(Connect {
+            fixed_header,
+            variable_header: connect_variable_header,
+            payload: connect_payload,
+        })
+    }
 }
 
 impl FromToBuf<Connect> for Connect {
@@ -22,23 +40,12 @@ impl FromToBuf<Connect> for Connect {
 
     fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
         // parse fixed header
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Fixed Header");
+        let fixed_header = Connect::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::CONNECT);
         assert_eq!(fixed_header.dup, false, "The dup of Connect Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Connect Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of Connect Fixed Header must be set to false");
-        // parse variable header
-        let connect_variable_header = ConnectVariableHeader::from_buf(buf)
-            .expect("Failed to parse Connect Variable Header");
-        // parse connect payload
-        let connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
-            .expect("Failed to parse Connect Payload");
-        Ok(Connect {
-            fixed_header,
-            variable_header: connect_variable_header,
-            payload: connect_payload,
-        })
+        Connect::from_buf_extra(buf, fixed_header)
     }
 }
 
