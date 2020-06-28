@@ -5,11 +5,11 @@ use bytes::{BufMut, BytesMut, Buf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedHeader {
-    pub(crate) packet_type: PacketType,
-    pub(crate) dup: bool,
-    pub(crate) qos: Qos,
-    pub(crate) retain: bool,
-    pub(crate) remaining_length: usize
+    pub packet_type: PacketType,
+    pub dup: bool,
+    pub qos: Qos,
+    pub retain: bool,
+    pub remaining_length: usize
 }
 
 impl FromToBuf<FixedHeader> for FixedHeader {
