@@ -1,7 +1,7 @@
 use mqtt_codec::{Error, FromToBuf};
 use std::io::{Cursor, Read};
 use mqtt_codec::connect::Connect;
-use bytes::{BytesMut, Buf};
+use bytes::{BytesMut, BufMut};
 use mqtt_codec::fixed_header::FixedHeader;
 use mqtt_codec::packet::{PacketType, Packet as Pkt};
 use mqtt_codec::connack::ConnAck;
@@ -41,83 +41,82 @@ pub enum Packet {
 
 impl Packet {
 
-    pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Packet, Error> {
-        let mut buf = BytesMut::from(src.bytes());
-        let fixed_header = FixedHeader::from_buf(&mut buf)
+    pub fn parse(buf: &mut BytesMut) -> Result<Packet, Error> {
+        let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Fixed Header");
         return match fixed_header.packet_type {
             PacketType::CONNECT => {
-                let connect = Connect::from_buf_extra(&mut buf, fixed_header)
+                let connect = Connect::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Connect Packet");
                 Ok(Packet::Connect(connect))
             }
             PacketType::CONNACK => {
-                let connack = ConnAck::from_buf_extra(&mut buf, fixed_header)
+                let connack = ConnAck::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse ConnAck Packet");
                 Ok(Packet::ConnAck(connack))
             }
             PacketType::PUBLISH => {
-                let publish = Publish::from_buf_extra(&mut buf, fixed_header)
+                let publish = Publish::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Publish Packet");
                 Ok(Packet::Publish(publish))
             }
             PacketType::PUBACK => {
-                let puback = PubAck::from_buf_extra(&mut buf, fixed_header)
+                let puback = PubAck::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PubAck Packet");
                 Ok(Packet::PubAck(puback))
             }
             PacketType::PUBREC => {
-                let pubrec = PubRec::from_buf_extra(&mut buf, fixed_header)
+                let pubrec = PubRec::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PubRec Packet");
                 Ok(Packet::PubRec(pubrec))
             }
             PacketType::PUBREL => {
-                let pubrel = PubRel::from_buf_extra(&mut buf, fixed_header)
+                let pubrel = PubRel::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PubRel Packet");
                 Ok(Packet::PubRel(pubrel))
             }
             PacketType::PUBCOMP => {
-                let pubcomp = PubComp::from_buf_extra(&mut buf, fixed_header)
+                let pubcomp = PubComp::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PubComp Packet");
-                OK(Packet::PubComp(pubcomp))
+                Ok(Packet::PubComp(pubcomp))
             }
             PacketType::SUBSCRIBE => {
-                let subscribe = Subscribe::from_buf_extra(&mut buf, fixed_header)
+                let subscribe = Subscribe::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Subscribe Packet");
                 Ok(Packet::Subscribe(subscribe))
             }
             PacketType::SUBACK => {
-                let suback = SubAck::from_buf_extra(&mut buf, fixed_header)
+                let suback = SubAck::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse SubAck Packet");
                 Ok(Packet::SubAck(suback))
             }
             PacketType::UNSUBSCRIBE => {
-                let unsubscribe = UnSubscribe::from_buf_extra(&mut buf, fixed_header)
+                let unsubscribe = UnSubscribe::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse UnSubscribe Packet");
                 Ok(Packet::UnSubscribe(unsubscribe))
             }
             PacketType::UNSUBACK => {
-                let unsuback = UnSubAck::from_buf_extra(&mut buf, fixed_header)
+                let unsuback = UnSubAck::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse UnSubAck Packet");
                 Ok(Packet::UnSubAck(unsuback))
             }
             PacketType::PINGREQ => {
-                let pingreq = PingReq::from_buf_extra(&mut buf, fixed_header)
+                let pingreq = PingReq::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PingReq Packet");
                 Ok(Packet::PingReq(pingreq))
             }
             PacketType::PINGRESP => {
-                let pingresp = PingResp::from_buf_extra(&mut buf, fixed_header)
+                let pingresp = PingResp::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse PingResp Packet");
                 Ok(Packet::PingResp(pingresp))
             }
             PacketType::DISCONNECT => {
-                let disconnect = Disconnect::from_buf_extra(&mut buf, fixed_header)
+                let disconnect = Disconnect::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Disconnect Packet");
                 Ok(Packet::Disconnect(disconnect))
             }
             PacketType::AUTH => {
-                let auth = Auth::from_buf_extra(&mut buf, fixed_header)
+                let auth = Auth::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Auth Packet");
                 Ok(Packet::Auth(auth))
             }
