@@ -10,7 +10,7 @@ pub struct PingResp {
 }
 
 impl Packet<PingResp> for PingResp {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PingResp, Error> {
+    fn from_buf_extra(_buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PingResp, Error> {
         Ok(PingResp {
             fixed_header
         })

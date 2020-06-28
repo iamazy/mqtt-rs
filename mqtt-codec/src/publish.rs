@@ -18,7 +18,6 @@ impl Packet<Publish> for Publish {
             - variable_header.topic_name.len()
             - 2
             - variable_header.publish_property.property_length;
-        assert!(payload_len >= 0, "Publish Payload length must greater than 0");
         let payload = buf.split_to(payload_len).to_bytes();
         Ok(Publish {
             fixed_header,

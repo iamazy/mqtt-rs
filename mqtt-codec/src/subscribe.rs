@@ -24,9 +24,6 @@ impl Packet<Subscribe> for Subscribe {
                 .expect("Failed to parse Subscription Options");
             payload.push((topic_filter.clone(), subscription_options));
             remaining = remaining - topic_filter.len() - 3;
-            if remaining < 0 {
-                return Err(Error::MalformedPacket);
-            }
         }
         Ok(Subscribe {
             fixed_header,

@@ -147,7 +147,7 @@ impl FromToBuf<Mqtt5Property> for Mqtt5Property {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let properties = self.properties.clone();
-        write_variable_bytes(self.property_length, |byte|buf.put_u8(byte));
+        write_variable_bytes(self.property_length, |byte|buf.put_u8(byte))?;
         let mut len: usize = 0;
         for (key, value) in properties {
             match value {
