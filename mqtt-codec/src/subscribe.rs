@@ -1,5 +1,5 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::{Mqtt5Property, FromToU8, FromToBuf, Error, write_string, read_string};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
@@ -10,6 +10,30 @@ pub struct Subscribe {
     variable_header: SubscribeVariableHeader,
     // (topic filter, subscription options)
     payload: Vec<(String, SubscriptionOptions)>
+}
+
+impl Packet<Subscribe> for Subscribe {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Subscribe, Error> {
+        let variable_header = SubscribeVariableHeader::from_buf(buf)
+            .expect("Failed to parse Subscribe Variable Header");
+        let mut remaining = fixed_header.remaining_length - variable_header.subscribe_property.property_length - 2;
+        let mut payload = Vec::<(String, SubscriptionOptions)>::new();
+        while remaining > 0 {
+            let topic_filter = read_string(buf).expect("Failed to parse Topic Filter");
+            let subscription_options = SubscriptionOptions::from_buf(buf)
+                .expect("Failed to parse Subscription Options");
+            payload.push((topic_filter.clone(), subscription_options));
+            remaining = remaining - topic_filter.len() - 3;
+            if remaining < 0 {
+                return Err(Error::MalformedPacket);
+            }
+        }
+        Ok(Subscribe {
+            fixed_header,
+            variable_header,
+            payload
+        })
+    }
 }
 
 impl FromToBuf<Subscribe> for Subscribe {
@@ -25,31 +49,12 @@ impl FromToBuf<Subscribe> for Subscribe {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Subscribe, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Subscribe Fixed Header");
+        let fixed_header = Subscribe::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::SUBSCRIBE);
         assert_eq!(fixed_header.dup, false, "The dup of Subscribe Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of Subscribe Fixed Header must be set to be AtLeastOnce");
         assert_eq!(fixed_header.retain, false, "The retain of Subscribe Fixed Header must be set to false");
-        let subscribe_variable_header = SubscribeVariableHeader::from_buf(buf)
-            .expect("Failed to parse Subscribe Variable Header");
-        let mut remaining = fixed_header.remaining_length - subscribe_variable_header.subscribe_property.property_length - 2;
-        let mut payload = Vec::<(String, SubscriptionOptions)>::new();
-        while remaining > 0 {
-            let topic_filter = read_string(buf).expect("Failed to parse Topic Filter");
-            let subscription_options = SubscriptionOptions::from_buf(buf)
-                .expect("Failed to parse Subscription Options");
-            payload.push((topic_filter.clone(), subscription_options));
-            remaining = remaining - topic_filter.len() - 3;
-            if remaining < 0 {
-                return Err(Error::MalformedPacket);
-            }
-        }
-        Ok(Subscribe {
-            fixed_header,
-            variable_header: subscribe_variable_header,
-            payload
-        })
+        Subscribe::from_buf_extra(buf, fixed_header)
     }
 }
 

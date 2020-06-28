@@ -2,11 +2,19 @@ use crate::fixed_header::FixedHeader;
 use crate::{FromToBuf, Error};
 use bytes::{BufMut, BytesMut};
 use crate::publish::Qos;
-use crate::packet::PacketType;
+use crate::packet::{PacketType, Packet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingResp {
     fixed_header: FixedHeader
+}
+
+impl Packet<PingResp> for PingResp {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PingResp, Error> {
+        Ok(PingResp {
+            fixed_header
+        })
+    }
 }
 
 
@@ -17,15 +25,12 @@ impl FromToBuf<PingResp> for PingResp {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PingResp, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse PingResp Fixed Header");
+        let fixed_header = PingResp::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PINGRESP);
         assert_eq!(fixed_header.dup, false, "The dup of PingResp Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PingResp Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of PingResp Fixed Header must be set to false");
         assert_eq!(fixed_header.remaining_length, 0);
-        Ok(PingResp {
-            fixed_header
-        })
+        PingResp::from_buf_extra(buf, fixed_header)
     }
 }

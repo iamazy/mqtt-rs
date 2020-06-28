@@ -1,6 +1,6 @@
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf, write_string, read_string};
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use bytes::{Bytes, BytesMut, BufMut, Buf};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -8,6 +8,24 @@ pub struct Publish {
     fixed_header: FixedHeader,
     variable_header: PublishVariableHeader,
     payload: Bytes,
+}
+
+impl Packet<Publish> for Publish {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Publish, Error> {
+        let variable_header = PublishVariableHeader::from_buf(buf)
+            .expect("Failed to parse Publish Variable Header");
+        let payload_len = fixed_header.remaining_length
+            - variable_header.topic_name.len()
+            - 2
+            - variable_header.publish_property.property_length;
+        assert!(payload_len >= 0, "Publish Payload length must greater than 0");
+        let payload = buf.split_to(payload_len).to_bytes();
+        Ok(Publish {
+            fixed_header,
+            variable_header,
+            payload,
+        })
+    }
 }
 
 impl FromToBuf<Publish> for Publish {
@@ -24,22 +42,9 @@ impl FromToBuf<Publish> for Publish {
         // If the DUP flag is set to 1, it indicates that this might be re-delivery of an earlier attempt to send the packet
         // The DUP flag MUST be set to 1 by the Client or Server when it attempts to re-deliver a PUBLISH packet.
         // The DUP flag MUST be set to 0 for all QoS 0 messages
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Publish Fixed Header");
+        let fixed_header = Publish::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBLISH);
-        let publish_variable_header = PublishVariableHeader::from_buf(buf)
-            .expect("Failed to parse Publish Variable Header");
-        let payload_len = fixed_header.remaining_length
-            - publish_variable_header.topic_name.len()
-            - 2
-            - publish_variable_header.publish_property.property_length;
-        assert!(payload_len >= 0, "Publish Payload length must greater than 0");
-        let payload = buf.split_to(payload_len).to_bytes();
-        Ok(Publish {
-            fixed_header,
-            variable_header: publish_variable_header,
-            payload,
-        })
+        Publish::from_buf_extra(buf, fixed_header)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::fixed_header::FixedHeader;
 use crate::unsubscribe::UnSubscribeReasonCode;
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -10,6 +10,24 @@ pub struct UnSubAck {
     fixed_header: FixedHeader,
     variable_header: UnSubAckVariableHeader,
     payload: Vec<UnSubscribeReasonCode>
+}
+
+impl Packet<UnSubAck> for UnSubAck {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubAck, Error> {
+        let variable_header = UnSubAckVariableHeader::from_buf(buf)
+            .expect("Failed to parse UnSubAck Variable Header");
+        let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsuback_property.property_length;
+        let mut payload = Vec::<UnSubscribeReasonCode>::new();
+        while payload_len > 0 {
+            payload.push(UnSubscribeReasonCode::from_u8(buf.get_u8())?);
+            payload_len -= 1;
+        }
+        Ok(UnSubAck {
+            fixed_header,
+            variable_header,
+            payload
+        })
+    }
 }
 
 impl FromToBuf<UnSubAck> for UnSubAck {
@@ -24,26 +42,12 @@ impl FromToBuf<UnSubAck> for UnSubAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAck, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse UnSubAck Fixed Header");
+        let fixed_header = UnSubAck::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::UNSUBACK);
         assert_eq!(fixed_header.dup, false, "The dup of UnSubAck Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of UnSubAck Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of UnSubAck Fixed Header must be set to false");
-        let unsuback_variable_header = UnSubAckVariableHeader::from_buf(buf)
-            .expect("Failed to parse UnSubAck Variable Header");
-        let mut payload_len = fixed_header.remaining_length - 2 - unsuback_variable_header.unsuback_property.property_length;
-        let mut payload = Vec::<UnSubscribeReasonCode>::new();
-        while payload_len > 0 {
-            payload.push(UnSubscribeReasonCode::from_u8(buf.get_u8())?);
-            payload_len -= 1;
-        }
-        Ok(UnSubAck {
-            fixed_header,
-            variable_header: unsuback_variable_header,
-            payload
-        })
-
+        UnSubAck::from_buf_extra(buf, fixed_header)
     }
 }
 

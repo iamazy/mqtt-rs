@@ -1,4 +1,4 @@
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::{Mqtt5Property, Error, FromToBuf, FromToU8};
 use crate::fixed_header::FixedHeader;
 use crate::subscribe::SubscribeReasonCode;
@@ -10,6 +10,24 @@ pub struct SubAck {
     fixed_header: FixedHeader,
     variable_header: SubAckVariableHeader,
     payload: Vec<SubscribeReasonCode>
+}
+
+impl Packet<SubAck> for SubAck {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<SubAck, Error> {
+        let variable_header = SubAckVariableHeader::from_buf(buf)
+            .expect("Failed to parse SubAck Variable Header");
+        let mut payload_len = fixed_header.remaining_length - 2 - variable_header.suback_property.property_length;
+        let mut payload = Vec::<SubscribeReasonCode>::new();
+        while payload_len > 0 {
+            payload.push(SubscribeReasonCode::from_u8(buf.get_u8())?);
+            payload_len -= 1;
+        }
+        Ok(SubAck {
+            fixed_header,
+            variable_header,
+            payload
+        })
+    }
 }
 
 impl FromToBuf<SubAck> for SubAck {
@@ -25,25 +43,12 @@ impl FromToBuf<SubAck> for SubAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubAck, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse SubAck Fixed Header");
+        let fixed_header = SubAck::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::SUBACK);
         assert_eq!(fixed_header.dup, false, "The dup of SubAck Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of SubAck Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of SubAck Fixed Header must be set to false");
-        let suback_variable_header = SubAckVariableHeader::from_buf(buf)
-            .expect("Failed to parse SubAck Variable Header");
-        let mut payload_len = fixed_header.remaining_length - 2 - suback_variable_header.suback_property.property_length;
-        let mut payload = Vec::<SubscribeReasonCode>::new();
-        while payload_len > 0 {
-            payload.push(SubscribeReasonCode::from_u8(buf.get_u8())?);
-            payload_len -= 1;
-        }
-        Ok(SubAck {
-            fixed_header,
-            variable_header: suback_variable_header,
-            payload
-        })
+        SubAck::from_buf_extra(buf, fixed_header)
     }
 }
 

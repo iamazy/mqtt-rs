@@ -1,5 +1,5 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -10,6 +10,17 @@ pub struct PubComp {
     variable_header: PubCompVariableHeader
 }
 
+impl Packet<PubComp> for PubComp {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubComp, Error> {
+        let variable_header = PubCompVariableHeader::from_buf(buf)
+            .expect("Failed to parse PubComp Variable Header");
+        Ok(PubComp {
+            fixed_header,
+            variable_header
+        })
+    }
+}
+
 impl FromToBuf<PubComp> for PubComp {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
@@ -18,18 +29,12 @@ impl FromToBuf<PubComp> for PubComp {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubComp, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse PubComp Fixed Header");
+        let fixed_header = PubComp::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBCOMP);
         assert_eq!(fixed_header.dup, false, "The dup of PubComp Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubComp Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of PubComp Fixed Header must be set to false");
-        let pubcomp_variable_header = PubCompVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubComp Variable Header");
-        Ok(PubComp {
-            fixed_header,
-            variable_header: pubcomp_variable_header
-        })
+        PubComp::from_buf_extra(buf, fixed_header)
     }
 }
 

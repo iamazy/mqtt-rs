@@ -4,7 +4,6 @@ use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketType, Packet};
-use crate::packet::Packets::ConnAck;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
@@ -17,15 +16,15 @@ impl Packet<Connect> for Connect {
 
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
-        let connect_variable_header = ConnectVariableHeader::from_buf(buf)
+        let variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
         // parse connect payload
-        let connect_payload = ConnectPayload::from_buf(buf, &connect_variable_header.connect_flags)
+        let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
         Ok(Connect {
             fixed_header,
-            variable_header: connect_variable_header,
-            payload: connect_payload,
+            variable_header,
+            payload,
         })
     }
 }

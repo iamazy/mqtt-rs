@@ -2,12 +2,23 @@ use crate::fixed_header::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
-use crate::packet::PacketType;
+use crate::packet::{PacketType, Packet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Auth {
     fixed_header: FixedHeader,
     variable_header: AuthVariableHeader
+}
+
+impl Packet<Auth> for Auth {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Auth, Error> {
+        let variable_header = AuthVariableHeader::from_buf(buf)
+            .expect("Failed to parse Auth Variable Header");
+        Ok(Auth {
+            fixed_header,
+            variable_header
+        })
+    }
 }
 
 impl FromToBuf<Auth> for Auth {
@@ -18,19 +29,12 @@ impl FromToBuf<Auth> for Auth {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Auth, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Auth Fixed Header");
+        let fixed_header = Auth::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::AUTH);
         assert_eq!(fixed_header.dup, false, "The dup of Auth Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Auth Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of Auth Fixed Header must be set to false");
-        let auth_variable_header = AuthVariableHeader::from_buf(buf)
-            .expect("Failed to parse Auth Variable Header");
-        Ok(Auth {
-            fixed_header,
-            variable_header: auth_variable_header
-        })
-
+        Auth::from_buf_extra(buf, fixed_header)
     }
 }
 

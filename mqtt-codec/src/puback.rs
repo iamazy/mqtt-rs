@@ -1,13 +1,24 @@
 use crate::fixed_header::FixedHeader;
 use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
 use bytes::{BytesMut, BufMut, Buf};
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::publish::Qos;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubAck {
     fixed_header: FixedHeader,
     variable_header: PubAckVariableHeader,
+}
+
+impl Packet<PubAck> for PubAck {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubAck, Error> {
+        let variable_header = PubAckVariableHeader::from_buf(buf)
+            .expect("Failed to parse PubAck Variable Header");
+        Ok(PubAck {
+            fixed_header,
+            variable_header
+        })
+    }
 }
 
 impl FromToBuf<PubAck> for PubAck {
@@ -18,18 +29,12 @@ impl FromToBuf<PubAck> for PubAck {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubAck, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Fixed Header");
+        let fixed_header = PubAck::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBACK);
         assert_eq!(fixed_header.dup, false, "The dup of PubAck Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubAck Fixed Header must be set to be AtMostOnce");
         assert_eq!(fixed_header.retain, false, "The retain of PubAck Fixed Header must be set to false");
-        let puback_variable_header = PubAckVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Variable Header");
-        Ok(PubAck {
-            fixed_header,
-            variable_header: puback_variable_header
-        })
+        PubAck::from_buf_extra(buf, fixed_header)
     }
 }
 

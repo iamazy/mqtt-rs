@@ -1,4 +1,4 @@
-use crate::packet::{PacketId, PacketType};
+use crate::packet::{PacketId, PacketType, Packet};
 use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, write_string, read_string};
 use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
@@ -9,6 +9,26 @@ pub struct UnSubscribe {
     fixed_header: FixedHeader,
     variable_header: UnSubscribeVariableHeader,
     payload: Vec<String>
+}
+
+impl Packet<UnSubscribe> for UnSubscribe {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
+        let variable_header = UnSubscribeVariableHeader::from_buf(buf)
+            .expect("Failed to parse Unsubscribe Variable Header");
+        let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsubscribe_property.property_length;
+        let mut payload = Vec::<String>::new();
+        while payload_len > 0 {
+            let topic_filter = read_string(buf)
+                .expect("Failed to parse Topic Filter");
+            payload_len -= 1;
+            payload.push(topic_filter);
+        }
+        Ok(UnSubscribe {
+            fixed_header,
+            variable_header,
+            payload
+        })
+    }
 }
 
 impl FromToBuf<UnSubscribe> for UnSubscribe {
@@ -23,27 +43,12 @@ impl FromToBuf<UnSubscribe> for UnSubscribe {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubscribe, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Unsubscribe Fixed Header");
+        let fixed_header = UnSubscribe::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::UNSUBSCRIBE);
         assert_eq!(fixed_header.dup, false, "The dup of Unsubscribe Fixed Header must be set to false");
         assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of Unsubscribe Fixed Header must be set to be AtLeastOnce");
         assert_eq!(fixed_header.retain, false, "The retain of Unsubscribe Fixed Header must be set to false");
-        let unsubscribe_variable_header = UnSubscribeVariableHeader::from_buf(buf)
-            .expect("Failed to parse Unsubscribe Variable Header");
-        let mut payload_len = fixed_header.remaining_length - 2 - unsubscribe_variable_header.unsubscribe_property.property_length;
-        let mut payload = Vec::<String>::new();
-        while payload_len > 0 {
-            let topic_filter = read_string(buf)
-                .expect("Failed to parse Topic Filter");
-            payload_len -= 1;
-            payload.push(topic_filter);
-        }
-        Ok(UnSubscribe {
-            fixed_header,
-            variable_header: unsubscribe_variable_header,
-            payload
-        })
+        UnSubscribe::from_buf_extra(buf, fixed_header)
     }
 }
 
