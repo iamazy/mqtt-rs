@@ -1,33 +1,33 @@
-mod packet;
-mod fixed_header;
-mod publish;
-mod puback;
-mod pubrec;
-mod pubrel;
-mod pubcomp;
-mod subscribe;
-mod suback;
-mod unsubscribe;
-mod unsuback;
-mod pingreq;
-mod pingresp;
-mod disconnect;
-mod auth;
-mod protocol;
-mod connect;
-mod connack;
-mod error;
+pub mod packet;
+pub mod fixed_header;
+pub mod publish;
+pub mod puback;
+pub mod pubrec;
+pub mod pubrel;
+pub mod pubcomp;
+pub mod subscribe;
+pub mod suback;
+pub mod unsubscribe;
+pub mod unsuback;
+pub mod pingreq;
+pub mod pingresp;
+pub mod disconnect;
+pub mod auth;
+pub mod protocol;
+pub mod connect;
+pub mod connack;
+pub mod error;
 
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::HashMap;
 
-trait FromToU8<R> {
+pub trait FromToU8<R> {
     fn to_u8(&self) -> u8;
     fn from_u8(byte: u8) -> Result<R, Error>;
 }
 
-trait FromToBuf<R> {
+pub trait FromToBuf<R> {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error>;
     fn from_buf(buf: &mut BytesMut) -> Result<R, Error>;
 }
