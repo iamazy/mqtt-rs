@@ -454,9 +454,4 @@ mod test {
         dst.put(&mut buf);
         println!("{}", buf.len());
     }
-
-    #[test]
-    fn test_connect_flag() {
-
-    }
 }
