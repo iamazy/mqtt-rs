@@ -114,7 +114,7 @@ impl FromToU8<Qos> for Qos {
             0 => Ok(Qos::AtMostOnce),
             1 => Ok(Qos::AtLeastOnce),
             2 => Ok(Qos::ExactlyOnce),
-            _ => Err(Error::MalformedPacket),
+            n => Err(Error::InvalidQos(n)),
         }
     }
 }
