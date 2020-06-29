@@ -6,7 +6,7 @@ use crate::packet::{PacketType, Packet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingReq {
-    fixed_header: FixedHeader
+    pub fixed_header: FixedHeader
 }
 
 impl Packet<PingReq> for PingReq {
