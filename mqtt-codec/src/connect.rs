@@ -463,7 +463,7 @@ mod test {
             0x05, // protocol version
             0b1100_1110u8, // connect flag
             0x00, 0x10, // keep alive
-            0x05, 0x11, 0x10, // properties
+            0x05, 0x11, 0x00, 0x00, 0x00, 0x10, // connect properties
             0x00, 0x03, 'c' as u8, 'i' as u8, 'd' as u8, // client id
             0x05, 0x02, 0x00, 0x00, 0x00, 0x10, // will properties
             0x00, 0x04, 'w' as u8, 'i' as u8, 'l' as u8, 'l' as u8, // will topic
