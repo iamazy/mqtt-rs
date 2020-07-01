@@ -4,6 +4,7 @@ use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketType, Packet};
+use std::env::var;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
@@ -16,13 +17,16 @@ impl Packet<Connect> for Connect {
 
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
-        let variable_header = ConnectVariableHeader::from_buf(buf)
+        let mut variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
         // parse connect payload
         let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
         if variable_header.connect_property.append_length > 0 {
             fixed_header.remaining_length += variable_header.connect_property.append_length;
+            variable_header.connect_property.property_length += variable_header.connect_property.append_length;
+            variable_header.connect_property.append_length = 0;
+
         }
         Ok(Connect {
             fixed_header,
@@ -109,7 +113,6 @@ impl ConnectVariableHeader {
             return Err(Error::InvalidProtocol("Connect properties cannot contains Authentication Data if there is no Authentication Method".to_string(), 0x16));
         }
         connect_property.append_length += append_length;
-        connect_property.property_length += append_length;
         Ok(())
     }
 }
@@ -482,10 +485,9 @@ mod test {
         buf.put_slice(connect_bytes);
         let connect = Connect::from_buf(&mut buf)
             .expect("Failed to parse Connect Packet");
-        println!("1: {:?}", connect);
 
         let mut buf = BytesMut::with_capacity(64);
         connect.to_buf(&mut buf);
-        println!("2: {:?}", Connect::from_buf(&mut buf).unwrap());
+        assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
     }
 }
