@@ -11,7 +11,7 @@ pub struct Publish {
 }
 
 impl Packet<Publish> for Publish {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Publish, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Publish, Error> {
         let variable_header = PublishVariableHeader::from_buf(buf)
             .expect("Failed to parse Publish Variable Header");
         let payload_len = fixed_header.remaining_length

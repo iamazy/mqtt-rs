@@ -14,13 +14,16 @@ pub struct Connect {
 
 impl Packet<Connect> for Connect {
 
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Connect, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
         let variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
         // parse connect payload
         let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
+        if variable_header.connect_property.append_length > 0 {
+            fixed_header.remaining_length += variable_header.connect_property.append_length;
+        }
         Ok(Connect {
             fixed_header,
             variable_header,
@@ -70,6 +73,7 @@ impl ConnectVariableHeader {
             }
         }
 
+        let mut append_length : usize = 0;
         // If the Session Expiry Interval is absent the value 0 is used. If it is set to 0, or is absent,
         // the Session ends when the Network Connection is closed.
         // If the Session Expiry Interval is 0xFFFFFFFF (UINT_MAX), the Session does not expire.
@@ -77,33 +81,35 @@ impl ConnectVariableHeader {
         // the Session Expiry Interval is greater than 0
         if !connect_property.properties.contains_key(&0x11) {
             connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(0));
-            connect_property.property_length += write_variable_bytes(0x11, |_|{})?;
-            connect_property.property_length += 4;
+            append_length += write_variable_bytes(0x11, |_|{})?;
+            append_length += 4;
         }
         // The value of Receive Maximum applies only to the current Network Connection.
         // If the Receive Maximum value is absent then its value defaults to 65,535
         if !connect_property.properties.contains_key(&0x21) {
             connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
-            connect_property.property_length += write_variable_bytes(0x11, |_|{})?;
-            connect_property.property_length += 2;
+            append_length += write_variable_bytes(0x11, |_|{})?;
+            append_length += 2;
         }
         // If the Topic Alias Maximum property is absent, the default value is 0.
         if !connect_property.properties.contains_key(&0x22) {
             connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
-            connect_property.property_length += write_variable_bytes(0x22, |_| {})?;
-            connect_property.property_length += 2;
+            append_length += write_variable_bytes(0x22, |_| {})?;
+            append_length += 2;
         }
         // If the Request Response Information is absent, the value of 0 is used.
         if !connect_property.properties.contains_key(&0x19) {
             connect_property.properties.insert(0x19, PropertyValue::Bit(false));
-            connect_property.property_length += write_variable_bytes(0x19, |_| {})?;
-            connect_property.property_length += 1;
+            append_length += write_variable_bytes(0x19, |_| {})?;
+            append_length += 1;
         }
         //  It is a Protocol Error to include Authentication Data if there is no Authentication Method
         if connect_property.properties.contains_key(&0x16) &&
             !connect_property.properties.contains_key(&0x15) {
             return Err(Error::InvalidProtocol("Connect properties cannot contains Authentication Data if there is no Authentication Method".to_string(), 0x16));
         }
+        connect_property.append_length += append_length;
+        connect_property.property_length += append_length;
         Ok(())
     }
 }
@@ -476,10 +482,10 @@ mod test {
         buf.put_slice(connect_bytes);
         let connect = Connect::from_buf(&mut buf)
             .expect("Failed to parse Connect Packet");
+        println!("1: {:?}", connect);
 
-        let bytes: Vec<u8> = vec![16, 49, 0, 4, 77, 81, 84, 84, 5, 206, 0, 16, 13, 17, 0, 0, 0, 16, 25, 0, 34, 0, 0, 33, 255, 255, 0, 3, 99, 105, 100, 10, 2, 0, 0, 0, 16, 24, 0, 0, 0, 0, 0, 4, 119, 105, 108, 108, 0, 1, 112, 0, 6, 105, 97, 109, 97, 122, 121, 0, 6, 1, 2, 3, 4, 5, 6];
         let mut buf = BytesMut::with_capacity(64);
-        buf.put_slice(&bytes);
-        assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
+        connect.to_buf(&mut buf);
+        println!("2: {:?}", Connect::from_buf(&mut buf).unwrap());
     }
 }

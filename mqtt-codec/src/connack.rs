@@ -12,7 +12,7 @@ pub struct ConnAck {
 }
 
 impl Packet<ConnAck> for ConnAck {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<ConnAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<ConnAck, Error> {
         let variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
         Ok(ConnAck {
             fixed_header,

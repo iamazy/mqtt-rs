@@ -13,7 +13,7 @@ pub struct SubAck {
 }
 
 impl Packet<SubAck> for SubAck {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<SubAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<SubAck, Error> {
         let variable_header = SubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse SubAck Variable Header");
         let mut payload_len = fixed_header.remaining_length - 2 - variable_header.suback_property.property_length;
@@ -126,7 +126,8 @@ mod test {
         let len = 35;
         let property = Mqtt5Property {
             properties,
-            property_length: len
+            property_length: len,
+            append_length: 0
         };
         let suback_variable_header = SubAckVariableHeader {
             packet_id: PacketId::new(19),

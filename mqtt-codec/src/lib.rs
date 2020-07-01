@@ -132,6 +132,7 @@ pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<(usize, usize), Error> 
 pub struct Mqtt5Property {
     pub property_length: usize,
     pub properties: HashMap<u32, PropertyValue>,
+    pub append_length: usize,
 }
 
 impl Mqtt5Property {
@@ -139,6 +140,7 @@ impl Mqtt5Property {
         Mqtt5Property {
             property_length: 0,
             properties: HashMap::<u32, PropertyValue>::default(),
+            append_length: 0
         }
     }
 }

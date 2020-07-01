@@ -11,7 +11,7 @@ pub struct PubAck {
 }
 
 impl Packet<PubAck> for PubAck {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubAck, Error> {
         let variable_header = PubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse PubAck Variable Header");
         Ok(PubAck {

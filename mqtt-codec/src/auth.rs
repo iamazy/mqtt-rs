@@ -11,7 +11,7 @@ pub struct Auth {
 }
 
 impl Packet<Auth> for Auth {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Auth, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Auth, Error> {
         let variable_header = AuthVariableHeader::from_buf(buf)
             .expect("Failed to parse Auth Variable Header");
         Ok(Auth {

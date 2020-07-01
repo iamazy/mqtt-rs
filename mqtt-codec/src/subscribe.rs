@@ -13,7 +13,7 @@ pub struct Subscribe {
 }
 
 impl Packet<Subscribe> for Subscribe {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Subscribe, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Subscribe, Error> {
         let variable_header = SubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Variable Header");
         let mut remaining = fixed_header.remaining_length - variable_header.subscribe_property.property_length - 2;

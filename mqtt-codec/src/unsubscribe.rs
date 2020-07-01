@@ -12,7 +12,7 @@ pub struct UnSubscribe {
 }
 
 impl Packet<UnSubscribe> for UnSubscribe {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
         let variable_header = UnSubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Unsubscribe Variable Header");
         let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsubscribe_property.property_length;

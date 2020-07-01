@@ -11,7 +11,7 @@ pub struct PubComp {
 }
 
 impl Packet<PubComp> for PubComp {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubComp, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubComp, Error> {
         let variable_header = PubCompVariableHeader::from_buf(buf)
             .expect("Failed to parse PubComp Variable Header");
         Ok(PubComp {

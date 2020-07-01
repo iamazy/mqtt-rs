@@ -11,7 +11,7 @@ pub struct PubRel {
 }
 
 impl Packet<PubRel> for PubRel {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubRel, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubRel, Error> {
         let variable_header = PubRelVariableHeader::from_buf(buf)
             .expect("Failed to parse PubRel Variable Header");
         Ok(PubRel {

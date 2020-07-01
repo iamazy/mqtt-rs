@@ -13,7 +13,7 @@ pub struct UnSubAck {
 }
 
 impl Packet<UnSubAck> for UnSubAck {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<UnSubAck, Error> {
         let variable_header = UnSubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse UnSubAck Variable Header");
         let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsuback_property.property_length;

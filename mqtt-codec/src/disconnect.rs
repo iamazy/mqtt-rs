@@ -11,7 +11,7 @@ pub struct Disconnect {
 }
 
 impl Packet<Disconnect> for Disconnect {
-    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Disconnect, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Disconnect, Error> {
         let variable_header = DisconnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Disconnect Variable Header");
         Ok(Disconnect {
