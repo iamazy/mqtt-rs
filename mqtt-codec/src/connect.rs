@@ -414,6 +414,7 @@ mod test {
     use bytes::{BytesMut, BufMut};
     use crate::connect::{ConnectVariableHeader, Connect};
     use crate::FromToBuf;
+    use crate::PropertyValue::Byte;
 
     #[test]
     fn test_variable_header_example() {
@@ -473,6 +474,12 @@ mod test {
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(connect_bytes);
-        println!("{:?}", Connect::from_buf(&mut buf));
+        let connect = Connect::from_buf(&mut buf)
+            .expect("Failed to parse Connect Packet");
+
+        let bytes: Vec<u8> = vec![16, 49, 0, 4, 77, 81, 84, 84, 5, 206, 0, 16, 13, 17, 0, 0, 0, 16, 25, 0, 34, 0, 0, 33, 255, 255, 0, 3, 99, 105, 100, 10, 2, 0, 0, 0, 16, 24, 0, 0, 0, 0, 0, 4, 119, 105, 108, 108, 0, 1, 112, 0, 6, 105, 97, 109, 97, 122, 121, 0, 6, 1, 2, 3, 4, 5, 6];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(&bytes);
+        assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
     }
 }
