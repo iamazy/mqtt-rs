@@ -126,8 +126,7 @@ mod test {
         let len = 35;
         let property = Mqtt5Property {
             properties,
-            property_length: len,
-            append_length: 0
+            property_length: len
         };
         let suback_variable_header = SubAckVariableHeader {
             packet_id: PacketId::new(19),

@@ -17,23 +17,18 @@ impl Packet<Connect> for Connect {
 
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
-        let mut variable_header = ConnectVariableHeader::from_buf(buf)
+        let variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
         // parse connect payload
-        let mut payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
+        let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
-        if variable_header.connect_property.append_length > 0 {
-            fixed_header.remaining_length += variable_header.connect_property.append_length;
-            variable_header.connect_property.property_length += variable_header.connect_property.append_length;
-            variable_header.connect_property.append_length = 0;
-        }
-        let mut payload_clone = payload.clone();
+        // correct fixed header
+        let variable_header_len = variable_header.connect_property.property_length + 10;
+        let payload_clone = payload.clone();
+        let mut payload_len = Bytes::from(payload_clone.client_id).len() + 2;
         match payload_clone.will_property {
-            Some(mut property) => {
-                fixed_header.remaining_length += property.append_length;
-                property.property_length += property.append_length;
-                property.append_length = 0;
-                payload.will_property = Some(property)
+            Some(property) => {
+                payload_len += property.property_length + write_variable_bytes(property.property_length, |_|{})?;
             }
             None => {}
         }
@@ -85,43 +80,6 @@ impl ConnectVariableHeader {
                 }
             }
         }
-
-        let mut append_length : usize = 0;
-        // If the Session Expiry Interval is absent the value 0 is used. If it is set to 0, or is absent,
-        // the Session ends when the Network Connection is closed.
-        // If the Session Expiry Interval is 0xFFFFFFFF (UINT_MAX), the Session does not expire.
-        // The Client and Server MUST store the Session State after the Network Connection is closed if
-        // the Session Expiry Interval is greater than 0
-        if !connect_property.properties.contains_key(&0x11) {
-            connect_property.properties.insert(0x11, PropertyValue::FourByteInteger(0));
-            append_length += write_variable_bytes(0x11, |_|{})?;
-            append_length += 4;
-        }
-        // The value of Receive Maximum applies only to the current Network Connection.
-        // If the Receive Maximum value is absent then its value defaults to 65,535
-        if !connect_property.properties.contains_key(&0x21) {
-            connect_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
-            append_length += write_variable_bytes(0x11, |_|{})?;
-            append_length += 2;
-        }
-        // If the Topic Alias Maximum property is absent, the default value is 0.
-        if !connect_property.properties.contains_key(&0x22) {
-            connect_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
-            append_length += write_variable_bytes(0x22, |_| {})?;
-            append_length += 2;
-        }
-        // If the Request Response Information is absent, the value of 0 is used.
-        if !connect_property.properties.contains_key(&0x19) {
-            connect_property.properties.insert(0x19, PropertyValue::Bit(false));
-            append_length += write_variable_bytes(0x19, |_| {})?;
-            append_length += 1;
-        }
-        //  It is a Protocol Error to include Authentication Data if there is no Authentication Method
-        if connect_property.properties.contains_key(&0x16) &&
-            !connect_property.properties.contains_key(&0x15) {
-            return Err(Error::InvalidProtocol("Connect properties cannot contains Authentication Data if there is no Authentication Method".to_string(), 0x16));
-        }
-        connect_property.append_length += append_length;
         Ok(())
     }
 }
@@ -261,15 +219,6 @@ impl ConnectPayload {
                 }
             }
         }
-
-        let mut append_length : usize = 0;
-        // If the Will Delay Interval is absent, the default value is 0 and there is no delay before the Will Message is published.
-        if !will_property.properties.contains_key(&0x18) {
-            will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
-            append_length += write_variable_bytes(0x18, |_| {})?;
-            append_length += 4;
-        }
-        will_property.append_length += append_length;
         Ok(())
     }
 
@@ -431,7 +380,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
+    use bytes::{BytesMut, BufMut, Buf};
     use crate::connect::{ConnectVariableHeader, Connect};
     use crate::FromToBuf;
     use crate::PropertyValue::Byte;
@@ -499,7 +448,7 @@ mod test {
 
         let mut buf = BytesMut::with_capacity(64);
         connect.to_buf(&mut buf);
-
+        println!("{:?}", buf.to_vec());
         assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
     }
 }

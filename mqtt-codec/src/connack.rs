@@ -14,6 +14,9 @@ pub struct ConnAck {
 impl Packet<ConnAck> for ConnAck {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<ConnAck, Error> {
         let variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
+        // correct fixed header length
+        let variable_header_len = variable_header.connack_property.property_length + write_variable_bytes(variable_header.connack_property.property_length, |_|{})? + 2;
+        fixed_header.remaining_length = variable_header_len;
         Ok(ConnAck {
             fixed_header,
             variable_header
@@ -56,38 +59,6 @@ impl ConnAckVariableHeader {
                     return Err(Error::InvalidPropertyType("Connack Properties contains a invalid property".to_string()))
                 }
             }
-        }
-        // If the Session Expiry Interval is absent the value in the CONNECT Packet used.
-
-        if !connack_property.properties.contains_key(&0x21) {
-            connack_property.properties.insert(0x21, PropertyValue::TwoByteInteger(65535));
-            connack_property.property_length += write_variable_bytes(0x21, |_| {})?;
-            connack_property.property_length += 2;
-        }
-
-        if !connack_property.properties.contains_key(&0x24) {
-            connack_property.properties.insert(0x24, PropertyValue::Byte(2));
-            connack_property.property_length += write_variable_bytes(0x24, |_| {})?;
-            connack_property.property_length += 1;
-        }
-
-        // If not present, then retained messages are supported
-        if !connack_property.properties.contains_key(&0x25) {
-            connack_property.properties.insert(0x25, PropertyValue::Byte(1));
-            connack_property.property_length += write_variable_bytes(0x25, |_| {})?;
-            connack_property.property_length += 1;
-        }
-
-        // If the Maximum Packet Size is not present, there is no limit on the packet size imposed beyond the limitations
-        // in the protocol as a result of the remaining length encoding and the protocol header sizes.
-
-        // If the Client connects using a zero length Client Identifier, the Server MUST respond with a CONNACK containing
-        // an Assigned Client Identifier. The Assigned Client Identifier MUST be a new Client Identifier not used by any other Session currently in the Server
-
-        if !connack_property.properties.contains_key(&0x22) {
-            connack_property.properties.insert(0x22, PropertyValue::TwoByteInteger(0));
-            connack_property.property_length += write_variable_bytes(0x22, |_| {})?;
-            connack_property.property_length += 2;
         }
         Ok(())
     }
@@ -146,5 +117,32 @@ impl FromToBuf<ConnAckFlags> for ConnAckFlags {
         Ok(ConnAckFlags {
             session_present
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::connack::ConnAck;
+    use bytes::{BytesMut, BufMut};
+    use crate::FromToBuf;
+
+    #[test]
+    fn test_connack() {
+        let connack_bytes = &[
+            0b0010_0000, 2,  // fixed header
+            0b0000_0000, // connack flag
+            0x00, // conack reason code
+            0x05, 0x11, 0x00, 0x00, 0x00, 0x10 // connack properties
+        ];
+
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(connack_bytes);
+        let connack = ConnAck::from_buf(&mut buf)
+            .expect("Failed to parse Connect Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        connack.to_buf(&mut buf);
+        println!("{:?}", connack);
+        assert_eq!(connack, ConnAck::from_buf(&mut buf).unwrap());
     }
 }
