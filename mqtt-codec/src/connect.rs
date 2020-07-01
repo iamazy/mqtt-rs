@@ -20,13 +20,22 @@ impl Packet<Connect> for Connect {
         let mut variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
         // parse connect payload
-        let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
+        let mut payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
         if variable_header.connect_property.append_length > 0 {
             fixed_header.remaining_length += variable_header.connect_property.append_length;
             variable_header.connect_property.property_length += variable_header.connect_property.append_length;
             variable_header.connect_property.append_length = 0;
-
+        }
+        let mut payload_clone = payload.clone();
+        match payload_clone.will_property {
+            Some(mut property) => {
+                fixed_header.remaining_length += property.append_length;
+                property.property_length += property.append_length;
+                property.append_length = 0;
+                payload.will_property = Some(property)
+            }
+            None => {}
         }
         Ok(Connect {
             fixed_header,
@@ -253,12 +262,14 @@ impl ConnectPayload {
             }
         }
 
+        let mut append_length : usize = 0;
         // If the Will Delay Interval is absent, the default value is 0 and there is no delay before the Will Message is published.
         if !will_property.properties.contains_key(&0x18) {
             will_property.properties.insert(0x18, PropertyValue::FourByteInteger(0));
-            will_property.property_length += write_variable_bytes(0x18, |_| {})?;
-            will_property.property_length += 4;
+            append_length += write_variable_bytes(0x18, |_| {})?;
+            append_length += 4;
         }
+        will_property.append_length += append_length;
         Ok(())
     }
 
@@ -488,6 +499,7 @@ mod test {
 
         let mut buf = BytesMut::with_capacity(64);
         connect.to_buf(&mut buf);
+
         assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
     }
 }
