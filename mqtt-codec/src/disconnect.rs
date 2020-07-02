@@ -1,8 +1,8 @@
 use crate::fixed_header::FixedHeader;
-use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
+use crate::{Mqtt5Property, FromToU8, Error, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
-use crate::packet::{PacketType, Packet};
+use crate::packet::{PacketType, PacketCodec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disconnect {
@@ -10,7 +10,7 @@ pub struct Disconnect {
     variable_header: DisconnectVariableHeader
 }
 
-impl Packet<Disconnect> for Disconnect {
+impl PacketCodec<Disconnect> for Disconnect {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Disconnect, Error> {
         let variable_header = DisconnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Disconnect Variable Header");
@@ -21,7 +21,7 @@ impl Packet<Disconnect> for Disconnect {
     }
 }
 
-impl FromToBuf<Disconnect> for Disconnect {
+impl Frame<Disconnect> for Disconnect {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.variable_header.to_buf(buf)?;
@@ -60,7 +60,7 @@ impl DisconnectVariableHeader {
     }
 }
 
-impl FromToBuf<DisconnectVariableHeader> for DisconnectVariableHeader {
+impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         buf.put_u8(self.reason_code.to_u8());
         let mut len = 1;

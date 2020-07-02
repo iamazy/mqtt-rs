@@ -1,13 +1,13 @@
 use crate::error::Error;
 use bytes::{BufMut, BytesMut, Buf};
-use crate::{FromToBuf, read_string};
+use crate::{Frame, read_string};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
     MQTT5
 }
 
-impl FromToBuf<Protocol> for Protocol {
+impl Frame<Protocol> for Protocol {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         match self {
             Protocol::MQTT5 => {
@@ -34,7 +34,7 @@ impl FromToBuf<Protocol> for Protocol {
 #[cfg(test)]
 mod test {
     use crate::protocol::Protocol;
-    use crate::FromToBuf;
+    use crate::Frame;
 
     #[test]
     fn test_protocol() {

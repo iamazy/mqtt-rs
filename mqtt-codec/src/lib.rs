@@ -21,13 +21,15 @@ pub mod error;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::HashMap;
+use std::io::Cursor;
+use crate::packet::{PacketCodec, Packet};
 
 pub trait FromToU8<R> {
     fn to_u8(&self) -> u8;
     fn from_u8(byte: u8) -> Result<R, Error>;
 }
 
-pub trait FromToBuf<R> {
+pub trait Frame<R> {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error>;
     fn from_buf(buf: &mut BytesMut) -> Result<R, Error>;
 }
@@ -143,7 +145,7 @@ impl Mqtt5Property {
     }
 }
 
-impl FromToBuf<Mqtt5Property> for Mqtt5Property {
+impl Frame<Mqtt5Property> for Mqtt5Property {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let properties = self.properties.clone();
@@ -631,7 +633,7 @@ pub enum PropertyValue {
 
 #[cfg(test)]
 mod test {
-    use crate::{Mqtt5Property, PropertyValue, FromToBuf, read_bytes};
+    use crate::{Mqtt5Property, PropertyValue, Frame, read_bytes};
     use bytes::Buf;
 
     #[test]

@@ -1,15 +1,16 @@
 use crate::fixed_header::FixedHeader;
-use crate::{FromToBuf, Error};
-use bytes::{BytesMut, BufMut};
+use crate::{Frame, Error};
+use bytes::{BytesMut, BufMut, Bytes};
 use crate::publish::Qos;
-use crate::packet::{PacketType, Packet};
+use crate::packet::{PacketType, PacketCodec, Packet};
+use std::io::{Cursor, Read};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingReq {
-    pub fixed_header: FixedHeader
+    pub fixed_header: FixedHeader,
 }
 
-impl Packet<PingReq> for PingReq {
+impl PacketCodec<PingReq> for PingReq {
     fn from_buf_extra(_buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PingReq, Error> {
         Ok(PingReq {
             fixed_header
@@ -17,7 +18,7 @@ impl Packet<PingReq> for PingReq {
     }
 }
 
-impl FromToBuf<PingReq> for PingReq {
+impl Frame<PingReq> for PingReq {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let len = self.fixed_header.to_buf(buf)?;
         Ok(len)

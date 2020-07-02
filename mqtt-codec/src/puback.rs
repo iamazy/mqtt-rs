@@ -1,7 +1,7 @@
 use crate::fixed_header::FixedHeader;
-use crate::{Mqtt5Property, FromToU8, Error, FromToBuf};
+use crate::{Mqtt5Property, FromToU8, Error, Frame};
 use bytes::{BytesMut, BufMut, Buf};
-use crate::packet::{PacketId, PacketType, Packet};
+use crate::packet::{PacketId, PacketType, PacketCodec};
 use crate::publish::Qos;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,7 +10,7 @@ pub struct PubAck {
     variable_header: PubAckVariableHeader,
 }
 
-impl Packet<PubAck> for PubAck {
+impl PacketCodec<PubAck> for PubAck {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubAck, Error> {
         let variable_header = PubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse PubAck Variable Header");
@@ -21,7 +21,7 @@ impl Packet<PubAck> for PubAck {
     }
 }
 
-impl FromToBuf<PubAck> for PubAck {
+impl Frame<PubAck> for PubAck {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.variable_header.to_buf(buf)?;
@@ -62,7 +62,7 @@ impl PubAckVariableHeader {
 
 }
 
-impl FromToBuf<PubAckVariableHeader> for PubAckVariableHeader {
+impl Frame<PubAckVariableHeader> for PubAckVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         buf.put_u8(self.puback_reason_code.to_u8());

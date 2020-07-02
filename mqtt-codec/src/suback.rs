@@ -1,5 +1,5 @@
-use crate::packet::{PacketId, PacketType, Packet};
-use crate::{Mqtt5Property, Error, FromToBuf, FromToU8};
+use crate::packet::{PacketId, PacketType, PacketCodec};
+use crate::{Mqtt5Property, Error, Frame, FromToU8};
 use crate::fixed_header::FixedHeader;
 use crate::subscribe::SubscribeReasonCode;
 use bytes::{BytesMut, BufMut, Buf};
@@ -12,7 +12,7 @@ pub struct SubAck {
     payload: Vec<SubscribeReasonCode>
 }
 
-impl Packet<SubAck> for SubAck {
+impl PacketCodec<SubAck> for SubAck {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<SubAck, Error> {
         let variable_header = SubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse SubAck Variable Header");
@@ -30,7 +30,7 @@ impl Packet<SubAck> for SubAck {
     }
 }
 
-impl FromToBuf<SubAck> for SubAck {
+impl Frame<SubAck> for SubAck {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
@@ -74,7 +74,7 @@ impl SubAckVariableHeader {
 
 }
 
-impl FromToBuf<SubAckVariableHeader> for SubAckVariableHeader {
+impl Frame<SubAckVariableHeader> for SubAckVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         len += self.suback_property.to_buf(buf)?;
@@ -100,7 +100,7 @@ mod test {
     use crate::packet::{PacketType, PacketId};
     use crate::publish::Qos;
     use crate::suback::{SubAckVariableHeader, SubAck};
-    use crate::{Mqtt5Property, PropertyValue, FromToBuf};
+    use crate::{Mqtt5Property, PropertyValue, Frame};
     use std::collections::HashMap;
     use crate::subscribe::SubscribeReasonCode;
 

@@ -1,5 +1,5 @@
-use crate::packet::{PacketId, PacketType, Packet};
-use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, write_string, read_string};
+use crate::packet::{PacketId, PacketType, PacketCodec};
+use crate::{Mqtt5Property, Frame, Error, FromToU8, write_string, read_string};
 use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -11,7 +11,7 @@ pub struct UnSubscribe {
     payload: Vec<String>
 }
 
-impl Packet<UnSubscribe> for UnSubscribe {
+impl PacketCodec<UnSubscribe> for UnSubscribe {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
         let variable_header = UnSubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Unsubscribe Variable Header");
@@ -31,7 +31,7 @@ impl Packet<UnSubscribe> for UnSubscribe {
     }
 }
 
-impl FromToBuf<UnSubscribe> for UnSubscribe {
+impl Frame<UnSubscribe> for UnSubscribe {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
@@ -73,7 +73,7 @@ impl UnSubscribeVariableHeader {
     }
 }
 
-impl FromToBuf<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
+impl Frame<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         len += self.unsubscribe_property.to_buf(buf)?;

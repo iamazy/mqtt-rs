@@ -1,9 +1,9 @@
 use crate::connect::ConnectReasonCode;
-use crate::{Mqtt5Property, FromToBuf, Error, FromToU8, PropertyValue, write_variable_bytes};
+use crate::{Mqtt5Property, Frame, Error, FromToU8, PropertyValue, write_variable_bytes};
 use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
-use crate::packet::{PacketType, Packet};
+use crate::packet::{PacketType, PacketCodec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
@@ -11,7 +11,7 @@ pub struct ConnAck {
     variable_header: ConnAckVariableHeader,
 }
 
-impl Packet<ConnAck> for ConnAck {
+impl PacketCodec<ConnAck> for ConnAck {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<ConnAck, Error> {
         let variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
         Ok(ConnAck {
@@ -21,7 +21,7 @@ impl Packet<ConnAck> for ConnAck {
     }
 }
 
-impl FromToBuf<ConnAck> for ConnAck {
+impl Frame<ConnAck> for ConnAck {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.variable_header.to_buf(buf)?;
@@ -61,7 +61,7 @@ impl ConnAckVariableHeader {
     }
 }
 
-impl FromToBuf<ConnAckVariableHeader> for ConnAckVariableHeader {
+impl Frame<ConnAckVariableHeader> for ConnAckVariableHeader {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.connack_flags.to_buf(buf)?;
@@ -92,7 +92,7 @@ pub struct ConnAckFlags {
 }
 
 
-impl FromToBuf<ConnAckFlags> for ConnAckFlags {
+impl Frame<ConnAckFlags> for ConnAckFlags {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         if self.session_present {
             buf.put_u8(1);
@@ -121,7 +121,7 @@ impl FromToBuf<ConnAckFlags> for ConnAckFlags {
 mod test {
     use crate::connack::ConnAck;
     use bytes::{BytesMut, BufMut};
-    use crate::FromToBuf;
+    use crate::Frame;
 
     #[test]
     fn test_connack() {

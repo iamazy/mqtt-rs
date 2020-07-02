@@ -1,6 +1,6 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, Packet};
-use crate::{Mqtt5Property, FromToU8, FromToBuf, Error, write_string, read_string};
+use crate::packet::{PacketId, PacketType, PacketCodec};
+use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 
@@ -12,7 +12,7 @@ pub struct Subscribe {
     payload: Vec<(String, SubscriptionOptions)>
 }
 
-impl Packet<Subscribe> for Subscribe {
+impl PacketCodec<Subscribe> for Subscribe {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Subscribe, Error> {
         let variable_header = SubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Variable Header");
@@ -33,7 +33,7 @@ impl Packet<Subscribe> for Subscribe {
     }
 }
 
-impl FromToBuf<Subscribe> for Subscribe {
+impl Frame<Subscribe> for Subscribe {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
@@ -78,7 +78,7 @@ impl SubscribeVariableHeader {
 
 }
 
-impl FromToBuf<SubscribeVariableHeader> for SubscribeVariableHeader {
+impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         len += self.subscribe_property.to_buf(buf)?;
@@ -105,7 +105,7 @@ pub struct SubscriptionOptions {
     retain_handling: u8,
 }
 
-impl FromToBuf<SubscriptionOptions> for SubscriptionOptions {
+impl Frame<SubscriptionOptions> for SubscriptionOptions {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut option_byte:u8= 0b0000_0000;
         option_byte |= self.maximum_qos.to_u8();
@@ -207,7 +207,7 @@ impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
 mod test {
     use bytes::{BytesMut, BufMut};
     use crate::subscribe::SubscriptionOptions;
-    use crate::{FromToBuf, read_string, write_string};
+    use crate::{Frame, read_string, write_string};
 
     #[test]
     fn test_subscribe_payload() {

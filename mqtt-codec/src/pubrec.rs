@@ -1,6 +1,6 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, Packet};
-use crate::{FromToU8, Error, Mqtt5Property, FromToBuf};
+use crate::packet::{PacketId, PacketType, PacketCodec};
+use crate::{FromToU8, Error, Mqtt5Property, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
@@ -10,7 +10,7 @@ pub struct PubRec {
     variable_header: PubRecVariableHeader
 }
 
-impl Packet<PubRec> for PubRec {
+impl PacketCodec<PubRec> for PubRec {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubRec, Error> {
         let variable_header = PubRecVariableHeader::from_buf(buf)
             .expect("Failed to parse PubRec Variable Header");
@@ -21,7 +21,7 @@ impl Packet<PubRec> for PubRec {
     }
 }
 
-impl FromToBuf<PubRec> for PubRec {
+impl Frame<PubRec> for PubRec {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf)?;
         len += self.variable_header.to_buf(buf)?;
@@ -61,7 +61,7 @@ impl PubRecVariableHeader {
 
 }
 
-impl FromToBuf<PubRecVariableHeader> for PubRecVariableHeader {
+impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.packet_id.to_buf(buf)?;
         buf.put_u8(self.pubrec_reason_code.to_u8());
@@ -140,14 +140,5 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
             153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
             n => Err(Error::InvalidReasonCode(n))
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn test_pubrec() {
-
     }
 }

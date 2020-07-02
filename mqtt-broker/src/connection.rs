@@ -1,9 +1,9 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
 use bytes::BytesMut;
-use mqtt_codec::{Error, FromToBuf};
-use crate::packet::Packet;
+use mqtt_codec::{Error, Frame};
 use std::io;
+use mqtt_codec::packet::Packet;
 
 #[derive(Debug)]
 pub struct Connection {

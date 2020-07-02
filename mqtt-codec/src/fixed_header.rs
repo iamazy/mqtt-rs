@@ -1,7 +1,8 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
-use crate::{FromToBuf, Error, FromToU8, write_variable_bytes, read_variable_bytes};
-use bytes::{BufMut, BytesMut, Buf};
+use crate::{Frame, Error, FromToU8, write_variable_bytes, read_variable_bytes};
+use bytes::{BufMut, BytesMut, Buf, Bytes};
+use std::io::Cursor;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedHeader {
@@ -12,7 +13,7 @@ pub struct FixedHeader {
     pub remaining_length: usize,
 }
 
-impl FromToBuf<FixedHeader> for FixedHeader {
+impl Frame<FixedHeader> for FixedHeader {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;

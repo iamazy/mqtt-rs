@@ -1,9 +1,9 @@
-use crate::{Error, FromToU8, FromToBuf, PropertyValue, Mqtt5Property, write_variable_bytes, read_string, write_string, read_bytes, write_bytes};
+use crate::{Error, FromToU8, Frame, PropertyValue, Mqtt5Property, write_variable_bytes, read_string, write_string, read_bytes, write_bytes};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketType, Packet};
+use crate::packet::{PacketType, PacketCodec};
 use std::env::var;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,7 +13,7 @@ pub struct Connect {
     payload: ConnectPayload,
 }
 
-impl Packet<Connect> for Connect {
+impl PacketCodec<Connect> for Connect {
 
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
@@ -30,7 +30,7 @@ impl Packet<Connect> for Connect {
     }
 }
 
-impl FromToBuf<Connect> for Connect {
+impl Frame<Connect> for Connect {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len = self.fixed_header.to_buf(buf).expect("Failed to parse Fixed Header to Byte Buf");
         len += self.variable_header.to_buf(buf).expect("Failed to parse Variable Header to Byte Buf");
@@ -74,7 +74,7 @@ impl ConnectVariableHeader {
     }
 }
 
-impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
+impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
 
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut len: usize = 0;
@@ -111,7 +111,7 @@ pub struct ConnectFlags {
     password_flag: bool,
 }
 
-impl FromToBuf<ConnectFlags> for ConnectFlags {
+impl Frame<ConnectFlags> for ConnectFlags {
     fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
         let mut connect_flags = 0b0000_0000;
         if self.clean_start {
@@ -371,7 +371,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 mod test {
     use bytes::{BytesMut, BufMut, Buf};
     use crate::connect::{ConnectVariableHeader, Connect};
-    use crate::FromToBuf;
+    use crate::Frame;
     use crate::PropertyValue::Byte;
 
     #[test]
