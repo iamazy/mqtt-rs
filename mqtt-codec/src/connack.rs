@@ -14,9 +14,6 @@ pub struct ConnAck {
 impl Packet<ConnAck> for ConnAck {
     fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<ConnAck, Error> {
         let variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
-        // correct fixed header length
-        let variable_header_len = variable_header.connack_property.property_length + write_variable_bytes(variable_header.connack_property.property_length, |_|{})? + 2;
-        fixed_header.remaining_length = variable_header_len;
         Ok(ConnAck {
             fixed_header,
             variable_header

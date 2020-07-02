@@ -22,16 +22,6 @@ impl Packet<Connect> for Connect {
         // parse connect payload
         let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
-        // correct fixed header
-        let variable_header_len = variable_header.connect_property.property_length + 10;
-        let payload_clone = payload.clone();
-        let mut payload_len = Bytes::from(payload_clone.client_id).len() + 2;
-        match payload_clone.will_property {
-            Some(property) => {
-                payload_len += property.property_length + write_variable_bytes(property.property_length, |_|{})?;
-            }
-            None => {}
-        }
         Ok(Connect {
             fixed_header,
             variable_header,
@@ -100,7 +90,6 @@ impl FromToBuf<ConnectVariableHeader> for ConnectVariableHeader {
         let protocol = Protocol::from_buf(buf).expect("Failed to parse Protocol");
         let connect_flags = ConnectFlags::from_buf(buf).expect("Failed to parse Connect Flag");
         let keep_alive = buf.get_u16();
-
         let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
         ConnectVariableHeader::check_connect_property(&mut connect_property)?;
         Ok(ConnectVariableHeader {

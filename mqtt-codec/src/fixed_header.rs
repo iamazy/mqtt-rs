@@ -10,7 +10,6 @@ pub struct FixedHeader {
     pub qos: Qos,
     pub retain: bool,
     pub remaining_length: usize,
-    pub length: usize,
 }
 
 impl FromToBuf<FixedHeader> for FixedHeader {
@@ -45,7 +44,6 @@ impl FromToBuf<FixedHeader> for FixedHeader {
             qos,
             retain,
             remaining_length,
-            length: 1 + remaining_length,
         })
     }
 }
