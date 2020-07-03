@@ -21,8 +21,6 @@ pub mod error;
 pub use error::Error;
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::HashMap;
-use std::io::Cursor;
-use crate::packet::{PacketCodec, Packet};
 
 pub trait FromToU8<R> {
     fn to_u8(&self) -> u8;
@@ -30,7 +28,7 @@ pub trait FromToU8<R> {
 }
 
 pub trait Frame<R> {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error>;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize;
     fn from_buf(buf: &mut BytesMut) -> Result<R, Error>;
 }
 
@@ -61,42 +59,33 @@ pub fn read_bytes(buf: &mut BytesMut) -> Result<Bytes, Error> {
 
 /// # Examples
 /// ```
-/// use bytes::BytesMut;
+/// use bytes::{BytesMut, BufMut};
 /// use mqtt_codec::write_variable_bytes;
 ///
 /// let mut buf = BytesMut::with_capacity(2);
-/// let len = write_variable_bytes(136, &mut buf);
+/// let len = write_variable_bytes(136, |byte|buf.put_u8(byte));
 /// assert_eq!(len, 2);
 /// assert_eq!(buf.to_vec(), [127,1])
 /// ```
-pub fn write_variable_bytes2(mut value: usize, buf: &mut impl BufMut) -> Result<usize, Error>{
-    let mut len = 0;
-    while value > 0 {
-        let mut encoded_byte: u8 = (value % 0x7F) as u8;
-        value = value / 0x7F;
-        if value > 0 {
-            encoded_byte |= 0x7F;
-        }
-        buf.put_u8(encoded_byte);
-        len += 1;
-    }
-    Ok(len)
-}
-
-pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> Result<usize, Error>
+pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> usize
     where T: FnMut(u8)
 {
     let mut len = 0;
-    while value > 0 {
-        let mut encoded_byte: u8 = (value % 0x7F) as u8;
-        value = value / 0x7F;
-        if value > 0 {
-            encoded_byte |= 0x7F;
-        }
-        callback(encoded_byte);
+    if value == 0 {
+        callback(0);
         len += 1;
+    } else {
+        while value > 0 {
+            let mut encoded_byte: u8 = (value % 0x7F) as u8;
+            value = value / 0x7F;
+            if value > 0 {
+                encoded_byte |= 0x7F;
+            }
+            callback(encoded_byte);
+            len += 1;
+        }
     }
-    Ok(len)
+    len
 }
 
 /// First usize is function returned value
@@ -113,7 +102,7 @@ pub fn write_variable_bytes<T>(mut value: usize, mut callback: T) -> Result<usiz
 /// buf.put_u8(byte1);
 /// buf.put_u8(byte2);
 /// let value = read_variable_bytes(&mut buf).unwrap();
-/// assert_eq!(value, 0b1000_1000);
+/// assert_eq!(value, (0b1000_1000, 2));
 /// ```
 pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<(usize, usize), Error> {
     let mut value: usize = 0;
@@ -147,14 +136,14 @@ impl Mqtt5Property {
 
 impl Frame<Mqtt5Property> for Mqtt5Property {
 
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let properties = self.properties.clone();
-        write_variable_bytes(self.property_length, |byte|buf.put_u8(byte))?;
+        write_variable_bytes(self.property_length, |byte|buf.put_u8(byte));
         let mut len: usize = 0;
         for (key, value) in properties {
             match value {
                 PropertyValue::Bit(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     match val {
                         true => {
                             buf.put_u8(1);
@@ -166,45 +155,45 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     len += 1;
                 }
                 PropertyValue::Byte(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     buf.put_u8(val);
                     len += 1;
                 }
                 PropertyValue::TwoByteInteger(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     buf.put_u16(val);
                     len += 2;
                 }
                 PropertyValue::FourByteInteger(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     buf.put_u32(val);
                     len += 4;
                 }
                 PropertyValue::String(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     len += write_string(val, buf);
                 }
                 PropertyValue::VariableByteInteger(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
-                    len += write_variable_bytes(val, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
+                    len += write_variable_bytes(val, |byte|buf.put_u8(byte));
                 }
                 PropertyValue::Binary(val) => {
-                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                    len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                     len += write_bytes(val, buf);
                 }
                 PropertyValue::StringPair(val) => {
                     for item in val {
-                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                         len += write_string(item.0, buf);
                         len += write_string(item.1, buf);
                     }
                 }
                 PropertyValue::Multiple(val) => {
                     for property_value in val {
-                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte))?;
+                        len += write_variable_bytes(key as usize, |byte|buf.put_u8(byte));
                         match property_value {
                             PropertyValue::VariableByteInteger(v) => {
-                                len += write_variable_bytes(v, |byte|buf.put_u8(byte))?;
+                                len += write_variable_bytes(v, |byte|buf.put_u8(byte));
                             }
                             _ => panic!("Not support yet")
                         }
@@ -213,7 +202,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
             }
         }
         assert_eq!(self.property_length, len);
-        Ok(self.property_length)
+        self.property_length
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Mqtt5Property, Error> {
@@ -448,8 +437,8 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     let name = read_string(buf).expect("Failed to parse User property");
                     let value = read_string(buf).expect("Failed to parse User property");
                     user_properties.push((name.clone(), value.clone()));
-                    prop_len += name.len() + 2;
-                    prop_len += value.len() + 2;
+                    prop_len += name.as_bytes().len() + 2;
+                    prop_len += value.as_bytes().len() + 2;
                 }
                 // Maximum Packet Size -> Connect, Connack
                 0x27 => {

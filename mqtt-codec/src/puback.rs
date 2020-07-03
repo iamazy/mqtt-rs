@@ -11,7 +11,7 @@ pub struct PubAck {
 }
 
 impl PacketCodec<PubAck> for PubAck {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubAck, Error> {
         let variable_header = PubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse PubAck Variable Header");
         Ok(PubAck {
@@ -22,10 +22,10 @@ impl PacketCodec<PubAck> for PubAck {
 }
 
 impl Frame<PubAck> for PubAck {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubAck, Error> {
@@ -63,12 +63,12 @@ impl PubAckVariableHeader {
 }
 
 impl Frame<PubAckVariableHeader> for PubAckVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
         buf.put_u8(self.puback_reason_code.to_u8());
         len += 1;
-        len += self.puback_property.to_buf(buf)?;
-        Ok(len)
+        len += self.puback_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubAckVariableHeader, Error> {
@@ -138,5 +138,32 @@ impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
             153 => Ok(PubAckReasonCode::PayloadFormatInvalid),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::puback::PubAck;
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+
+    #[test]
+    fn test_puback() {
+        let puback_bytes = &[
+            0b0100_0000u8, 9,  // fixed header
+            0x00, 0x10, // packet identifier
+            0x00, // puback reason code
+            5, // properties length
+            0x1F, // property id
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(puback_bytes);
+        let puback = PubAck::from_buf(&mut buf)
+            .expect("Failed to parse PubAck Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        puback.to_buf(&mut buf);
+        assert_eq!(puback, PubAck::from_buf(&mut buf).unwrap());
     }
 }

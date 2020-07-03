@@ -8,13 +8,13 @@ pub enum Protocol {
 }
 
 impl Frame<Protocol> for Protocol {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         match self {
             Protocol::MQTT5 => {
                 // offset: 0, length: 4, body: MQTT, level: 5
                 let slice = &[0u8, 4u8, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, 5u8];
                 buf.put_slice(slice);
-                Ok(slice.len())
+                slice.len()
             }
         }
     }
@@ -40,7 +40,7 @@ mod test {
     fn test_protocol() {
         let buf = &mut Vec::<u8>::with_capacity(1024);
         let protocol = Protocol::MQTT5;
-        let len = protocol.to_buf(buf).unwrap();
+        let len = protocol.to_buf(buf);
         println!("len: {}, buf: {:?}",len, buf);
     }
 }

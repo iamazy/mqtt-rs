@@ -1,10 +1,9 @@
-use crate::{Error, FromToU8, Frame, PropertyValue, Mqtt5Property, write_variable_bytes, read_string, write_string, read_bytes, write_bytes};
+use crate::{Error, FromToU8, Frame, Mqtt5Property, read_string, write_string, read_bytes, write_bytes};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketType, PacketCodec};
-use std::env::var;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
@@ -15,7 +14,7 @@ pub struct Connect {
 
 impl PacketCodec<Connect> for Connect {
 
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Connect, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
         let variable_header = ConnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Connect Variable Header");
@@ -31,11 +30,11 @@ impl PacketCodec<Connect> for Connect {
 }
 
 impl Frame<Connect> for Connect {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf).expect("Failed to parse Fixed Header to Byte Buf");
-        len += self.variable_header.to_buf(buf).expect("Failed to parse Variable Header to Byte Buf");
-        len += self.payload.to_buf(buf, &self.variable_header.connect_flags.clone())?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len += self.payload.to_buf(buf, &self.variable_header.connect_flags.clone());
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Connect, Error> {
@@ -76,14 +75,14 @@ impl ConnectVariableHeader {
 
 impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
 
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut len: usize = 0;
-        len += self.protocol.to_buf(buf).expect("Failed to parse Protocol to Byte Buf");
-        len += self.connect_flags.to_buf(buf).expect("Failed to parse Connect Flags to Byte Buf");
+        len += self.protocol.to_buf(buf);
+        len += self.connect_flags.to_buf(buf);
         buf.put_u16(self.keep_alive);
         len += 2;
-        len += self.connect_property.to_buf(buf).expect("Failed to parse Connect Property to Byte Buf");
-        Ok(len)
+        len += self.connect_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnectVariableHeader, Error> {
@@ -112,7 +111,7 @@ pub struct ConnectFlags {
 }
 
 impl Frame<ConnectFlags> for ConnectFlags {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut connect_flags = 0b0000_0000;
         if self.clean_start {
             connect_flags |= 0b0000_0010;
@@ -132,7 +131,7 @@ impl Frame<ConnectFlags> for ConnectFlags {
         }
         connect_flags &= 0b1111_1110;
         buf.put_u8(connect_flags);
-        Ok(connect_flags as usize)
+        1
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnectFlags, Error> {
@@ -211,12 +210,12 @@ impl ConnectPayload {
         Ok(())
     }
 
-    fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlags) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlags) -> usize {
         let mut len:usize = 0;
         len += write_string(self.client_id.clone(), buf);
         if connect_flags.will_flag {
             let will_property = self.will_property.clone();
-            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf)?;
+            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf);
             let will_topic = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload");
             len += write_string(will_topic.clone(), buf);
             let will_payload = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload");
@@ -230,7 +229,7 @@ impl ConnectPayload {
             let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
             len += write_string(password.clone(), buf)
         }
-        Ok(len)
+        len
     }
 
     fn from_buf(buf: &mut BytesMut, connect_flags: &ConnectFlags) -> Result<ConnectPayload, Error> {
@@ -369,10 +368,9 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut, Buf};
+    use bytes::{BytesMut, BufMut};
     use crate::connect::{ConnectVariableHeader, Connect};
     use crate::Frame;
-    use crate::PropertyValue::Byte;
 
     #[test]
     fn test_variable_header_example() {
@@ -402,22 +400,22 @@ mod test {
     fn test_take() {
         use bytes::{BufMut, buf::BufExt};
 
-        let mut buf = b"hello world"[..].take(100);
+        let mut buf = b"hello world"[..].take(5);
         let mut dst = vec![];
 
         dst.put(&mut buf);
-        println!("{}", dst.len());
+        println!("{:?}", dst);
 
         let mut buf = buf.into_inner();
         dst.clear();
         dst.put(&mut buf);
-        println!("{}", buf.len());
+        println!("{:?}", dst);
     }
 
     #[test]
     fn test_connect() {
         let connect_bytes = &[
-            0b0001_0000u8, 49,  // fixed header
+            0b0001_0000u8, 52,  // fixed header
             0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, // protocol name
             0x05, // protocol version
             0b1100_1110u8, // connect flag

@@ -11,7 +11,7 @@ pub struct Disconnect {
 }
 
 impl PacketCodec<Disconnect> for Disconnect {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Disconnect, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Disconnect, Error> {
         let variable_header = DisconnectVariableHeader::from_buf(buf)
             .expect("Failed to parse Disconnect Variable Header");
         Ok(Disconnect {
@@ -22,10 +22,10 @@ impl PacketCodec<Disconnect> for Disconnect {
 }
 
 impl Frame<Disconnect> for Disconnect {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Disconnect, Error> {
@@ -61,11 +61,11 @@ impl DisconnectVariableHeader {
 }
 
 impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         buf.put_u8(self.reason_code.to_u8());
         let mut len = 1;
-        len += self.disconnect_property.to_buf(buf)?;
-        Ok(len)
+        len += self.disconnect_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<DisconnectVariableHeader, Error> {
@@ -213,5 +213,31 @@ impl FromToU8<DisconnectReasonCode> for DisconnectReasonCode {
             162 => Ok(DisconnectReasonCode::WildcardSubscriptionsNotSupported),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::disconnect::Disconnect;
+    use crate::Frame;
+
+    #[test]
+    fn test_disconnect() {
+        let disconnect_bytes = &[
+            0b1110_0000u8, 7,  // fixed header
+            0x00, // disconnect reason code
+            5, // properties length
+            0x1F, // property id
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(disconnect_bytes);
+        let disconnect = Disconnect::from_buf(&mut buf)
+            .expect("Failed to parse Disconnect Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        disconnect.to_buf(&mut buf);
+        assert_eq!(disconnect, Disconnect::from_buf(&mut buf).unwrap());
     }
 }

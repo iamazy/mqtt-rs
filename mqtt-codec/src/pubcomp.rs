@@ -11,7 +11,7 @@ pub struct PubComp {
 }
 
 impl PacketCodec<PubComp> for PubComp {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubComp, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubComp, Error> {
         let variable_header = PubCompVariableHeader::from_buf(buf)
             .expect("Failed to parse PubComp Variable Header");
         Ok(PubComp {
@@ -22,10 +22,10 @@ impl PacketCodec<PubComp> for PubComp {
 }
 
 impl Frame<PubComp> for PubComp {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubComp, Error> {
@@ -61,12 +61,12 @@ impl PubCompVariableHeader {
 }
 
 impl Frame<PubCompVariableHeader> for PubCompVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
         buf.put_u8(self.pubcomp_reason_code.to_u8());
         len += 1;
-        len += self.pubcomp_property.to_buf(buf)?;
-        Ok(len)
+        len += self.pubcomp_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubCompVariableHeader, Error> {
@@ -109,5 +109,32 @@ impl FromToU8<PubCompReasonCode> for PubCompReasonCode {
             146 => Ok(PubCompReasonCode::PacketIdentifierNotFound),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::pubcomp::PubComp;
+
+    #[test]
+    fn test_pubcomp() {
+        let pubcomp_bytes = &[
+            0b0111_0000u8, 10, // fixed header,
+            0x00, 0x10, // packet identifier
+            0x00, // pubcomp reason code
+            6,
+            0x1F,
+            0x00, 0x03, 'h' as u8, 'e' as u8, 'l' as u8, // reason string
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(pubcomp_bytes);
+        let pubcomp = PubComp::from_buf(&mut buf)
+            .expect("Failed to parse PubComp Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        pubcomp.to_buf(&mut buf);
+        assert_eq!(pubcomp, PubComp::from_buf(&mut buf).unwrap());
     }
 }

@@ -11,7 +11,7 @@ pub struct PubRec {
 }
 
 impl PacketCodec<PubRec> for PubRec {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PubRec, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubRec, Error> {
         let variable_header = PubRecVariableHeader::from_buf(buf)
             .expect("Failed to parse PubRec Variable Header");
         Ok(PubRec {
@@ -22,10 +22,10 @@ impl PacketCodec<PubRec> for PubRec {
 }
 
 impl Frame<PubRec> for PubRec {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRec, Error> {
@@ -62,12 +62,12 @@ impl PubRecVariableHeader {
 }
 
 impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
         buf.put_u8(self.pubrec_reason_code.to_u8());
         len += 1;
-        len += self.pubrec_property.to_buf(buf)?;
-        Ok(len)
+        len += self.pubrec_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRecVariableHeader, Error> {
@@ -140,5 +140,32 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
             153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::pubrec::PubRec;
+
+    #[test]
+    fn test_pubrec() {
+        let pubrec_bytes = &[
+            0b0101_0000u8, 9,  // fixed header
+            0x00, 0x10, // packet identifier
+            0x00, // pubrec reason code
+            5, // properties length
+            0x1F, // property id
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(pubrec_bytes);
+        let pubrec = PubRec::from_buf(&mut buf)
+            .expect("Failed to parse PubRec Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        pubrec.to_buf(&mut buf);
+        assert_eq!(pubrec, PubRec::from_buf(&mut buf).unwrap());
     }
 }

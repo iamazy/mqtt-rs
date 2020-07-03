@@ -1,6 +1,6 @@
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string};
+use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string, write_variable_bytes};
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 
@@ -9,14 +9,16 @@ pub struct Subscribe {
     fixed_header: FixedHeader,
     variable_header: SubscribeVariableHeader,
     // (topic filter, subscription options)
-    payload: Vec<(String, SubscriptionOptions)>
+    payload: Vec<(String, SubscriptionOptions)>,
 }
 
 impl PacketCodec<Subscribe> for Subscribe {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Subscribe, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Subscribe, Error> {
         let variable_header = SubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Variable Header");
-        let mut remaining = fixed_header.remaining_length - variable_header.subscribe_property.property_length - 2;
+        let mut remaining = fixed_header.remaining_length - 2
+            - variable_header.subscribe_property.property_length
+            - write_variable_bytes(variable_header.subscribe_property.property_length, |_| {});
         let mut payload = Vec::<(String, SubscriptionOptions)>::new();
         while remaining > 0 {
             let topic_filter = read_string(buf).expect("Failed to parse Topic Filter");
@@ -28,21 +30,20 @@ impl PacketCodec<Subscribe> for Subscribe {
         Ok(Subscribe {
             fixed_header,
             variable_header,
-            payload
+            payload,
         })
     }
 }
 
 impl Frame<Subscribe> for Subscribe {
-
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
         for (topic_filter, subscription_options) in self.payload.clone() {
             len += write_string(topic_filter, buf);
-            len += subscription_options.to_buf(buf)?;
+            len += subscription_options.to_buf(buf);
         }
-        Ok(len)
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Subscribe, Error> {
@@ -58,31 +59,29 @@ impl Frame<Subscribe> for Subscribe {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscribeVariableHeader {
     packet_id: PacketId,
-    subscribe_property: Mqtt5Property
+    subscribe_property: Mqtt5Property,
 }
 
 impl SubscribeVariableHeader {
-
     fn check_subscribe_property(subscribe_property: &mut Mqtt5Property) -> Result<(), Error> {
         for key in subscribe_property.properties.keys() {
             let key = *key;
             match key {
-                0x0B | 0x26 => {},
+                0x0B | 0x26 => {}
                 _ => {
-                    return Err(Error::InvalidPropertyType("Subscribe Properties contains a invalid property".to_string()))
+                    return Err(Error::InvalidPropertyType("Subscribe Properties contains a invalid property".to_string()));
                 }
             }
         }
         Ok(())
     }
-
 }
 
 impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
-        len += self.subscribe_property.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
+        len += self.subscribe_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubscribeVariableHeader, Error> {
@@ -92,7 +91,7 @@ impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
         SubscribeVariableHeader::check_subscribe_property(&mut subscribe_property)?;
         Ok(SubscribeVariableHeader {
             packet_id,
-            subscribe_property
+            subscribe_property,
         })
     }
 }
@@ -106,8 +105,8 @@ pub struct SubscriptionOptions {
 }
 
 impl Frame<SubscriptionOptions> for SubscriptionOptions {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut option_byte:u8= 0b0000_0000;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut option_byte: u8 = 0b0000_0000;
         option_byte |= self.maximum_qos.to_u8();
         if self.no_local {
             option_byte |= 0b0000_0100;
@@ -117,7 +116,7 @@ impl Frame<SubscriptionOptions> for SubscriptionOptions {
         }
         option_byte |= self.retain_handling << 4;
         buf.put_u8(option_byte);
-        Ok(1)
+        1
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubscriptionOptions, Error> {
@@ -131,7 +130,7 @@ impl Frame<SubscriptionOptions> for SubscriptionOptions {
             maximum_qos,
             no_local,
             retain_as_published,
-            retain_handling
+            retain_handling,
         })
     }
 }
@@ -164,7 +163,7 @@ pub enum SubscribeReasonCode {
     /// 161[0XA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
     SubscriptionIdentifierNotSupported,
     /// 162[0XA2], The Server does not support Wildcard subscription; the subscription is not accepted.
-    WildcardSubscriptionNotSupported
+    WildcardSubscriptionNotSupported,
 }
 
 impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
@@ -203,50 +202,33 @@ impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
         }
     }
 }
+
 #[cfg(test)]
 mod test {
     use bytes::{BytesMut, BufMut};
-    use crate::subscribe::SubscriptionOptions;
-    use crate::{Frame, read_string, write_string};
+    use crate::{Frame};
+    use crate::subscribe::Subscribe;
 
     #[test]
-    fn test_subscribe_payload() {
+    fn test_subscribe() {
+        let subscribe_bytes = &[
+            0b1000_0010u8, 17,  // fixed header
+            0x00, 0x10, // packet identifier
+            2, // properties length
+            0x0B, // property id
+            0x02, // subscription identifier
+            0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, // topic filter
+            0x01, // subscription options
+            0x00, 0x03, 'c' as u8, '/' as u8, 'd' as u8, // topic filter
+            0x02, // subscription options
+        ];
         let mut buf = BytesMut::with_capacity(64);
-        buf.put_u8(0);
-        buf.put_u8(3);
-        buf.put_u8('a' as u8);
-        buf.put_u8('/' as u8);
-        buf.put_u8('b' as u8);
-        buf.put_u8(1);
-        buf.put_u8(0);
-        buf.put_u8(3);
-        buf.put_u8('c' as u8);
-        buf.put_u8('/' as u8);
-        buf.put_u8('d' as u8);
-        buf.put_u8(2);
-        println!("{:?}", buf.to_vec());
-
-        let mut payload = Vec::<(String, SubscriptionOptions)>::new();
-        let mut remaining = 12;
-        while remaining > 0 {
-            let topic_filter = read_string(&mut buf).expect("Failed to parse Topic Filter");
-            let subscription_options = SubscriptionOptions::from_buf(&mut buf)
-                .expect("Failed to parse Subscription Options");
-            payload.push((topic_filter.clone(), subscription_options));
-            remaining = remaining - topic_filter.len() - 3;
-            if remaining < 0 {
-                break;
-            }
-        }
-        println!("{:?}", payload);
+        buf.put_slice(subscribe_bytes);
+        let subscribe = Subscribe::from_buf(&mut buf)
+            .expect("Failed to parse Subscribe Packet");
 
         let mut buf = BytesMut::with_capacity(64);
-        let mut len = 0;
-        for (topic_filter, subscription_options) in payload.clone() {
-            len += write_string(topic_filter, &mut buf);
-            len += subscription_options.to_buf(&mut buf).expect("Failed to encode Subscription Options");
-        }
-        println!("{:?}", buf.to_vec());
-
+        subscribe.to_buf(&mut buf);
+        assert_eq!(subscribe, Subscribe::from_buf(&mut buf).unwrap());
     }
 }

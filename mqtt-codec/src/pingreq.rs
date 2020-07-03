@@ -1,9 +1,8 @@
 use crate::fixed_header::FixedHeader;
 use crate::{Frame, Error};
-use bytes::{BytesMut, BufMut, Bytes};
+use bytes::{BytesMut, BufMut};
 use crate::publish::Qos;
-use crate::packet::{PacketType, PacketCodec, Packet};
-use std::io::{Cursor, Read};
+use crate::packet::{PacketType, PacketCodec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingReq {
@@ -11,7 +10,7 @@ pub struct PingReq {
 }
 
 impl PacketCodec<PingReq> for PingReq {
-    fn from_buf_extra(_buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PingReq, Error> {
+    fn from_buf_extra(_buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PingReq, Error> {
         Ok(PingReq {
             fixed_header
         })
@@ -19,9 +18,8 @@ impl PacketCodec<PingReq> for PingReq {
 }
 
 impl Frame<PingReq> for PingReq {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let len = self.fixed_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        self.fixed_header.to_buf(buf)
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PingReq, Error> {
@@ -32,5 +30,27 @@ impl Frame<PingReq> for PingReq {
         assert_eq!(fixed_header.retain, false, "The retain of PingReq Fixed Header must be set to false");
         assert_eq!(fixed_header.remaining_length, 0);
         PingReq::from_buf_extra(buf, fixed_header)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::pingreq::PingReq;
+    use crate::Frame;
+
+    #[test]
+    fn test_pingreq() {
+        let pingreq_bytes = &[
+            0b1100_0000u8, 0  // fixed header
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(pingreq_bytes);
+        let pingreq = PingReq::from_buf(&mut buf)
+            .expect("Failed to parse PingReq Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        pingreq.to_buf(&mut buf);
+        assert_eq!(pingreq, PingReq::from_buf(&mut buf).unwrap());
     }
 }

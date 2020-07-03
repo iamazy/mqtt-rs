@@ -1,7 +1,7 @@
 use crate::fixed_header::FixedHeader;
 use crate::unsubscribe::UnSubscribeReasonCode;
 use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{Mqtt5Property, Frame, Error, FromToU8};
+use crate::{Mqtt5Property, Frame, Error, FromToU8, write_variable_bytes};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
@@ -13,10 +13,13 @@ pub struct UnSubAck {
 }
 
 impl PacketCodec<UnSubAck> for UnSubAck {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<UnSubAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubAck, Error> {
         let variable_header = UnSubAckVariableHeader::from_buf(buf)
             .expect("Failed to parse UnSubAck Variable Header");
-        let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsuback_property.property_length;
+        let mut payload_len = fixed_header.remaining_length
+            - 2
+            - variable_header.unsuback_property.property_length
+            - write_variable_bytes(variable_header.unsuback_property.property_length, |_| {});
         let mut payload = Vec::<UnSubscribeReasonCode>::new();
         while payload_len > 0 {
             payload.push(UnSubscribeReasonCode::from_u8(buf.get_u8())?);
@@ -31,14 +34,14 @@ impl PacketCodec<UnSubAck> for UnSubAck {
 }
 
 impl Frame<UnSubAck> for UnSubAck {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
         for reason_code in self.payload.clone() {
             buf.put_u8(reason_code.to_u8());
             len += 1;
         }
-        Ok(len)
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAck, Error> {
@@ -73,10 +76,10 @@ impl UnSubAckVariableHeader {
 }
 
 impl Frame<UnSubAckVariableHeader> for UnSubAckVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
-        len += self.unsuback_property.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
+        len += self.unsuback_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAckVariableHeader, Error> {
@@ -88,5 +91,33 @@ impl Frame<UnSubAckVariableHeader> for UnSubAckVariableHeader {
             packet_id,
             unsuback_property
         })
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::unsuback::UnSubAck;
+
+    #[test]
+    fn test_unsuback() {
+        let unsuback_bytes = &[
+            0b1011_0000u8, 11,  // fixed header
+            0x00, 0x10, // packet identifier
+            5, // properties length
+            0x1F, // property id
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00, 0x11, 0x80
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(unsuback_bytes);
+        let unsuback = UnSubAck::from_buf(&mut buf)
+            .expect("Failed to parse UnSubAck Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        unsuback.to_buf(&mut buf);
+        assert_eq!(unsuback, UnSubAck::from_buf(&mut buf).unwrap());
     }
 }

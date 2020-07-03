@@ -31,9 +31,9 @@ impl PacketId {
         self.0.get()
     }
 
-    pub(crate) fn to_buf(self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    pub(crate) fn to_buf(self, buf: &mut impl BufMut) -> usize {
         buf.put_u16(self.get());
-        Ok(2)
+        2
     }
 }
 

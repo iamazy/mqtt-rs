@@ -11,7 +11,7 @@ pub struct Auth {
 }
 
 impl PacketCodec<Auth> for Auth {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Auth, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Auth, Error> {
         let variable_header = AuthVariableHeader::from_buf(buf)
             .expect("Failed to parse Auth Variable Header");
         Ok(Auth {
@@ -22,10 +22,10 @@ impl PacketCodec<Auth> for Auth {
 }
 
 impl Frame<Auth> for Auth {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Auth, Error> {
@@ -60,11 +60,11 @@ impl AuthVariableHeader {
 }
 
 impl Frame<AuthVariableHeader> for AuthVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         buf.put_u8(self.reason_code.to_u8());
         let mut len = 0;
-        len += self.auth_property.to_buf(buf)?;
-        Ok(len)
+        len += self.auth_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<AuthVariableHeader, Error> {
@@ -106,5 +106,31 @@ impl FromToU8<AuthenticateReasonCode> for AuthenticateReasonCode {
             25 => Ok(AuthenticateReasonCode::ReAuthenticate),
             n => Err(Error::InvalidReasonCode(n))
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::auth::Auth;
+
+    #[test]
+    fn test_auth() {
+        let auth_bytes = &[
+            0b1111_0000u8, 8,  // fixed header,
+            0x00, // authenticate reason code
+            6, // properties length
+            0x1F, // reason string identifier
+            0x00, 0x03, 'h' as u8, 'e' as u8, 'l' as u8,
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(auth_bytes);
+        let auth = Auth::from_buf(&mut buf)
+            .expect("Failed to parse Auth Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        auth.to_buf(&mut buf);
+        assert_eq!(auth, Auth::from_buf(&mut buf).unwrap());
     }
 }

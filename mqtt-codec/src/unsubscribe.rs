@@ -1,5 +1,5 @@
 use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{Mqtt5Property, Frame, Error, FromToU8, write_string, read_string};
+use crate::{Mqtt5Property, Frame, Error, FromToU8, write_string, read_string, write_variable_bytes};
 use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -12,15 +12,17 @@ pub struct UnSubscribe {
 }
 
 impl PacketCodec<UnSubscribe> for UnSubscribe {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<UnSubscribe, Error> {
         let variable_header = UnSubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Unsubscribe Variable Header");
-        let mut payload_len = fixed_header.remaining_length - 2 - variable_header.unsubscribe_property.property_length;
+        let mut payload_len = fixed_header.remaining_length - 2
+            - variable_header.unsubscribe_property.property_length
+            - write_variable_bytes(variable_header.unsubscribe_property.property_length, |_| {});
         let mut payload = Vec::<String>::new();
         while payload_len > 0 {
             let topic_filter = read_string(buf)
                 .expect("Failed to parse Topic Filter");
-            payload_len -= 1;
+            payload_len -= topic_filter.as_bytes().len() + 2;
             payload.push(topic_filter);
         }
         Ok(UnSubscribe {
@@ -33,13 +35,13 @@ impl PacketCodec<UnSubscribe> for UnSubscribe {
 
 impl Frame<UnSubscribe> for UnSubscribe {
 
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
         for topic_filter in self.payload.clone() {
             len += write_string(topic_filter, buf);
         }
-        Ok(len)
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubscribe, Error> {
@@ -74,10 +76,10 @@ impl UnSubscribeVariableHeader {
 }
 
 impl Frame<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.packet_id.to_buf(buf)?;
-        len += self.unsubscribe_property.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.packet_id.to_buf(buf);
+        len += self.unsubscribe_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubscribeVariableHeader, Error> {
@@ -135,6 +137,31 @@ impl FromToU8<UnSubscribeReasonCode> for UnSubscribeReasonCode {
             145 => Ok(UnSubscribeReasonCode::PacketIdentifierInUse),
             n => Err(Error::InvalidReasonCode(n))
         }
-
     }
+}
+
+#[test]
+fn test_subscribe() {
+    let unsubscribe_bytes = &[
+        0b1010_0010u8, 38,  // fixed header
+        0x00, 0x10, // packet identifier
+        25, // properties length
+        0x26, // property id
+        0x00, 0x04, 'n' as u8, 'a' as u8, 'm' as u8, 'e' as u8, // user property key1
+        0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // user property value1
+        0x26,
+        0x00, 0x03, 'a' as u8, 'g' as u8, 'e' as u8, // user property key2
+        0x00, 0x02, '2' as u8, '4' as u8, // user property value2
+        0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, // topic filter
+        0x00, 0x03, 'c' as u8, '/' as u8, 'd' as u8, // topic filter
+
+    ];
+    let mut buf = BytesMut::with_capacity(64);
+    buf.put_slice(unsubscribe_bytes);
+    let unsubscribe = UnSubscribe::from_buf(&mut buf)
+        .expect("Failed to parse UnSubscribe Packet");
+
+    let mut buf = BytesMut::with_capacity(64);
+    unsubscribe.to_buf(&mut buf);
+    assert_eq!(unsubscribe, UnSubscribe::from_buf(&mut buf).unwrap());
 }

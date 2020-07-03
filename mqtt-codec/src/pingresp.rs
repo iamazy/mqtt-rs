@@ -10,7 +10,7 @@ pub struct PingResp {
 }
 
 impl PacketCodec<PingResp> for PingResp {
-    fn from_buf_extra(_buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<PingResp, Error> {
+    fn from_buf_extra(_buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PingResp, Error> {
         Ok(PingResp {
             fixed_header
         })
@@ -19,9 +19,8 @@ impl PacketCodec<PingResp> for PingResp {
 
 
 impl Frame<PingResp> for PingResp {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let len = self.fixed_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        self.fixed_header.to_buf(buf)
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PingResp, Error> {
@@ -32,5 +31,27 @@ impl Frame<PingResp> for PingResp {
         assert_eq!(fixed_header.retain, false, "The retain of PingResp Fixed Header must be set to false");
         assert_eq!(fixed_header.remaining_length, 0);
         PingResp::from_buf_extra(buf, fixed_header)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::pingresp::PingResp;
+
+    #[test]
+    fn test_pingresp() {
+        let pingresp_bytes = &[
+            0b1101_0000u8, 0  // fixed header
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(pingresp_bytes);
+        let pingresp = PingResp::from_buf(&mut buf)
+            .expect("Failed to parse PingResp Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        pingresp.to_buf(&mut buf);
+        assert_eq!(pingresp, PingResp::from_buf(&mut buf).unwrap());
     }
 }

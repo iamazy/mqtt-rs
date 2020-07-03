@@ -1,8 +1,7 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
 use crate::{Frame, Error, FromToU8, write_variable_bytes, read_variable_bytes};
-use bytes::{BufMut, BytesMut, Buf, Bytes};
-use std::io::Cursor;
+use bytes::{BufMut, BytesMut, Buf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FixedHeader {
@@ -14,7 +13,7 @@ pub struct FixedHeader {
 }
 
 impl Frame<FixedHeader> for FixedHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let packet_type = self.packet_type.clone();
         let mut byte = packet_type.to_u8() << 4;
         if self.retain {
@@ -26,8 +25,8 @@ impl Frame<FixedHeader> for FixedHeader {
         }
         let mut len = 1;
         buf.put_u8(byte);
-        len += write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte))?;
-        Ok(len)
+        len += write_variable_bytes(self.remaining_length, |byte| buf.put_u8(byte));
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<FixedHeader, Error> {
@@ -39,6 +38,7 @@ impl Frame<FixedHeader> for FixedHeader {
         let retain = fixed_header_byte & 0x01 == 1;
         let remaining_length = read_variable_bytes(buf)
             .expect("Failed to parse Fixed Header Remaining Length").0;
+        assert_eq!(remaining_length, buf.len());
         Ok(FixedHeader {
             packet_type,
             dup,

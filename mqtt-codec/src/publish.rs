@@ -1,4 +1,4 @@
-use crate::{FromToU8, Error, Mqtt5Property, Frame, write_string, read_string};
+use crate::{FromToU8, Error, Mqtt5Property, Frame, write_string, read_string, write_variable_bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketId, PacketType, PacketCodec};
 use bytes::{Bytes, BytesMut, BufMut, Buf};
@@ -11,13 +11,14 @@ pub struct Publish {
 }
 
 impl PacketCodec<Publish> for Publish {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<Publish, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Publish, Error> {
         let variable_header = PublishVariableHeader::from_buf(buf)
             .expect("Failed to parse Publish Variable Header");
         let payload_len = fixed_header.remaining_length
-            - variable_header.topic_name.len()
-            - 2
-            - variable_header.publish_property.property_length;
+            - variable_header.topic_name.as_bytes().len()
+            - 4
+            - variable_header.publish_property.property_length
+            - write_variable_bytes(variable_header.publish_property.property_length, |_| {});
         let payload = buf.split_to(payload_len).to_bytes();
         Ok(Publish {
             fixed_header,
@@ -28,12 +29,12 @@ impl PacketCodec<Publish> for Publish {
 }
 
 impl Frame<Publish> for Publish {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
         buf.put_slice(self.payload.as_ref());
         len += self.payload.len();
-        Ok(len)
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Publish, Error> {
@@ -70,11 +71,11 @@ impl PublishVariableHeader {
 }
 
 impl Frame<PublishVariableHeader> for PublishVariableHeader {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut len = write_string(self.topic_name.clone(), buf);
-        len += self.packet_id.to_buf(buf)?;
-        len += self.publish_property.to_buf(buf)?;
-        Ok(len)
+        len += self.packet_id.to_buf(buf);
+        len += self.publish_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PublishVariableHeader, Error> {
@@ -116,5 +117,32 @@ impl FromToU8<Qos> for Qos {
             2 => Ok(Qos::ExactlyOnce),
             n => Err(Error::InvalidQos(n)),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bytes::{BytesMut, BufMut};
+    use crate::Frame;
+    use crate::publish::Publish;
+
+    #[test]
+    fn test_publish() {
+        let publish_bytes = &[
+            0b0011_1101u8, 14,  // fixed header,
+            0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // topic name
+            0x00, 0x10, // packet identifier
+            6,
+            0x08,
+            0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // reponse topic
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(publish_bytes);
+        let publish = Publish::from_buf(&mut buf)
+            .expect("Failed to parse Publish Packet");
+
+        let mut buf = BytesMut::with_capacity(64);
+        publish.to_buf(&mut buf);
+        assert_eq!(publish, Publish::from_buf(&mut buf).unwrap());
     }
 }

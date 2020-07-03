@@ -1,5 +1,5 @@
 use crate::connect::ConnectReasonCode;
-use crate::{Mqtt5Property, Frame, Error, FromToU8, PropertyValue, write_variable_bytes};
+use crate::{Mqtt5Property, Frame, Error, FromToU8};
 use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
@@ -12,7 +12,7 @@ pub struct ConnAck {
 }
 
 impl PacketCodec<ConnAck> for ConnAck {
-    fn from_buf_extra(buf: &mut BytesMut, mut fixed_header: FixedHeader) -> Result<ConnAck, Error> {
+    fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<ConnAck, Error> {
         let variable_header = ConnAckVariableHeader::from_buf(buf).expect("Failed to parse Connack Variable Header");
         Ok(ConnAck {
             fixed_header,
@@ -22,10 +22,10 @@ impl PacketCodec<ConnAck> for ConnAck {
 }
 
 impl Frame<ConnAck> for ConnAck {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.fixed_header.to_buf(buf)?;
-        len += self.variable_header.to_buf(buf)?;
-        Ok(len)
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.fixed_header.to_buf(buf);
+        len += self.variable_header.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnAck, Error> {
@@ -63,12 +63,12 @@ impl ConnAckVariableHeader {
 
 impl Frame<ConnAckVariableHeader> for ConnAckVariableHeader {
 
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
-        let mut len = self.connack_flags.to_buf(buf)?;
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
+        let mut len = self.connack_flags.to_buf(buf);
         buf.put_u8(self.connect_reason_code.to_u8());
         len += 1;
-        len += self.connack_property.to_buf(buf)?;
-        Ok(len)
+        len += self.connack_property.to_buf(buf);
+        len
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnAckVariableHeader, Error> {
@@ -93,13 +93,13 @@ pub struct ConnAckFlags {
 
 
 impl Frame<ConnAckFlags> for ConnAckFlags {
-    fn to_buf(&self, buf: &mut impl BufMut) -> Result<usize, Error> {
+    fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         if self.session_present {
             buf.put_u8(1);
         } else {
             buf.put_u8(0);
         }
-        Ok(1)
+        1
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<ConnAckFlags, Error> {
@@ -126,7 +126,7 @@ mod test {
     #[test]
     fn test_connack() {
         let connack_bytes = &[
-            0b0010_0000, 2,  // fixed header
+            0b0010_0000, 8,  // fixed header
             0b0000_0000, // connack flag
             0x00, // conack reason code
             0x05, 0x11, 0x00, 0x00, 0x00, 0x10 // connack properties
@@ -135,7 +135,7 @@ mod test {
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(connack_bytes);
         let connack = ConnAck::from_buf(&mut buf)
-            .expect("Failed to parse Connect Packet");
+            .expect("Failed to parse ConnAck Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         connack.to_buf(&mut buf);
