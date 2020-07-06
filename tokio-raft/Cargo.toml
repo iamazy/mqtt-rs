@@ -1,0 +1,21 @@
+[package]
+name = "tokio-raft"
+version = "0.1.0"
+authors = ["iamazy <1448588084@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "0.2", features = ["full"]}
+tokio-serde = { version = "0.6", features = ["bincode"] }
+tokio-util = { version = "0.3", features = ["codec"] }
+futures = "0.3"
+futures-util = "0.3"
+lazy_static = "1"
+bincode = "1.3.1"
+serde="1.0.114"
+serde_derive="1.0.114"
+log="0.4"
+rand="0.7"
+uuid = { version = "0.8", features = ["serde", "v4"] }
