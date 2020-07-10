@@ -19,3 +19,4 @@ serde_derive="1.0.114"
 log="0.4"
 rand="0.7"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+async-std="1"

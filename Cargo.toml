@@ -3,5 +3,5 @@
 members = [
   "mqtt-codec",
   "mqtt-broker",
-  "tokio-raft"
+  "raft"
 ]

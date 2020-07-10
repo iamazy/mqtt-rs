@@ -10,7 +10,7 @@ edition = "2018"
 tokio = { version = "0.2", features = ["full"] }
 tokio-util = { version = "0.3", features = ["codec"] }
 mqtt-codec = { version = "0.1.0", path = "../mqtt-codec" }
-tokio-raft = { version = "0.1.0", path = "../tokio-raft"}
+tokio-raft = { version = "0.1.0", path = "../raft"}
 serde = "1"
 bytes = "0.5"
 byteorder = "1"
