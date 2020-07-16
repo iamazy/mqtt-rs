@@ -99,7 +99,7 @@ impl Node {
     }
 
     pub fn step(self, msg: Message) -> Result<Self> {
-        debug!("Steppinng {:?}", msg);
+        debug!("Stepping {:?}", msg);
         match self {
             Node::Candidate(n) => n.step(msg),
             Node::Follower(n) => n.step(msg),
