@@ -5,7 +5,7 @@ pub enum Error {
 
     MalformedVariableByteInteger,
 
-    MalformedFixedHeader(String),
+    MalformedFixedHeader,
 
     InvalidProtocol(String, u8),
 
@@ -31,7 +31,7 @@ impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::MalformedVariableByteInteger => "Malformed variable byte integer".fmt(fmt),
-            Error::MalformedFixedHeader(err) => err.fmt(fmt),
+            Error::MalformedFixedHeader => "Malformed Fixed Header".fmt(fmt),
             Error::InvalidProtocol(err, _) => err.fmt(fmt),
             Error::InvalidQos(_) => "Invalid Qos".fmt(fmt),
             Error::InvalidReasonCode(_) => "Invalid Reason Code".fmt(fmt),

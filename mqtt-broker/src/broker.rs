@@ -6,6 +6,14 @@ use crate::shutdown::Shutdown;
 use tokio::macros::support::Future;
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
+use std::net::SocketAddr;
+use tokio::io::AsyncWriteExt;
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use bytes::{BytesMut, BufMut};
+use mqtt_codec::disconnect::Disconnect;
+use mqtt_codec::Frame;
+use mqtt_codec::packet::Packet;
 
 
 #[derive(Debug)]
@@ -67,8 +75,7 @@ impl Listener {
 
         loop {
             self.limit_connections.acquire().await.forget();
-            let socket = self.accept().await?;
-
+            let (socket, addr) = self.accept().await?;
             let mut handler = Handler {
                 connection: Connection::new(socket),
                 limit_connections: self.limit_connections.clone(),
@@ -78,19 +85,22 @@ impl Listener {
 
             tokio::spawn(async move {
                 if let Err(err) = handler.run().await {
-                    error!(cause = ? err, "connection error");
+                    // TODO can not send message to client
+                    let packet = Packet::Error("111".to_string());
+                    handler.connection.write_packet(&packet);
+                    error!(cause = ?err, "connection error, address is {}:{}", addr.ip(), addr.port());
                 }
             });
         }
     }
 
 
-    async fn accept(&mut self) -> crate::Result<TcpStream> {
+    async fn accept(&mut self) -> crate::Result<(TcpStream, SocketAddr)> {
 
         let mut backoff = 1;
         loop {
             match self.listener.accept().await {
-                Ok((socket, _)) => return Ok(socket),
+                Ok((socket, addr)) => return Ok((socket, addr)),
                 Err(err) => {
                     if backoff > 64 {
                         return Err(err.into());

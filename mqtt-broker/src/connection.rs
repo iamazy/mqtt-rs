@@ -1,6 +1,6 @@
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;
-use bytes::BytesMut;
+use bytes::{BytesMut, BufMut};
 use mqtt_codec::{Error, Frame};
 use std::io;
 use mqtt_codec::packet::Packet;
@@ -71,6 +71,9 @@ impl Connection {
             }
             Packet::Auth(auth) => {
                 auth.to_buf(&mut buf);
+            }
+            Packet::Error(err) => {
+                buf.put_slice(err.as_bytes());
             }
         }
         self.stream.write_all(&buf).await?;

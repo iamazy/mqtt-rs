@@ -1,5 +1,5 @@
 use std::num::NonZeroU16;
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, BytesMut, Buf};
 use crate::{Error, FromToU8, Frame};
 use crate::fixed_header::FixedHeader;
 use crate::connect::Connect;
@@ -137,12 +137,16 @@ pub enum Packet {
     PingReq(PingReq),
     PingResp(PingResp),
     Disconnect(Disconnect),
-    Auth(Auth)
+    Auth(Auth),
+    Error(String)
 }
 
 impl Packet {
 
     pub fn parse(buf: &mut BytesMut) -> Result<Packet, Error> {
+        if buf.remaining() <= 1 {
+            return Err(Error::MalformedFixedHeader);
+        }
         let fixed_header = FixedHeader::from_buf(buf)
             .expect("Failed to parse Fixed Header");
         return match fixed_header.packet_type {
