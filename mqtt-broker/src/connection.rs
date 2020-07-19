@@ -20,7 +20,7 @@ impl Connection {
         }
     }
 
-    pub async fn read_packet(&mut self) -> Result<Packet, Error> {
+    pub(crate) async fn read_packet(&mut self) -> Result<Packet, Error> {
         Packet::parse(&mut self.buffer)
     }
 
