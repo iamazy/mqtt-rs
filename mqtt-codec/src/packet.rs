@@ -138,7 +138,6 @@ pub enum Packet {
     PingResp(PingResp),
     Disconnect(Disconnect),
     Auth(Auth),
-    Error(String)
 }
 
 impl Packet {

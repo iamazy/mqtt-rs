@@ -72,9 +72,6 @@ impl Connection {
             Packet::Auth(auth) => {
                 auth.to_buf(&mut buf);
             }
-            Packet::Error(err) => {
-                buf.put_slice(err.as_bytes());
-            }
         }
         self.stream.write_all(&buf).await?;
         self.stream.flush().await

@@ -17,8 +17,6 @@ impl Client {
 
     #[instrument(skip(self))]
     pub async fn print(&mut self) -> crate::Result<()>{
-        let packet = Packet::Error("11".to_string());
-        self.connection.write_packet(&packet).await;
         Ok(())
     }
 }
