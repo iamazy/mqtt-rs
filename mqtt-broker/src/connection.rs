@@ -1,4 +1,4 @@
-use tokio::io::{BufWriter, AsyncWriteExt};
+use tokio::io::{BufWriter, AsyncWriteExt, AsyncReadExt};
 use tokio::net::TcpStream;
 use bytes::{BytesMut, BufMut};
 use mqtt_codec::{Error, Frame};
@@ -20,8 +20,22 @@ impl Connection {
         }
     }
 
-    pub(crate) async fn read_packet(&mut self) -> Result<Packet, Error> {
-        Packet::parse(&mut self.buffer)
+    pub(crate) async fn read_packet(&mut self) -> Result<Option<Packet>, Error> {
+        loop {
+            match Packet::parse(&mut self.buffer) {
+                Ok(packet) => return Ok(Some(packet)),
+                Err(Error::Incomplete) => {},
+                Err(e) => return Err(e.into())
+            }
+
+            if 0 == self.stream.read_buf(&mut self.buffer).await? {
+                return if self.buffer.is_empty() {
+                    Ok(None)
+                } else {
+                    Err("connection reset by peer".into())
+                }
+            }
+        }
     }
 
     pub(crate) async fn write_packet(&mut self, packet: &Packet) -> io::Result<()> {

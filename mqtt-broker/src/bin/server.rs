@@ -1,6 +1,6 @@
 use tokio::net::TcpListener;
 use std::panic;
-use mqtt_broker::{broker, DEFAULT_PORT, Config};
+use mqtt_broker::{broker, Config};
 use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_version};
 use tracing::{info, error, Level};
 

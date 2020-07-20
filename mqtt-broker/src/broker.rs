@@ -5,7 +5,7 @@ use crate::connection::Connection;
 use crate::shutdown::Shutdown;
 use tokio::macros::support::Future;
 use tokio::time::{self, Duration};
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 use std::net::SocketAddr;
 
 #[derive(Debug)]
@@ -107,14 +107,19 @@ impl Handler {
     #[instrument(skip(self))]
     async fn run(&mut self) -> crate::Result<()> {
         while !self.shutdown.is_shutdown() {
-            let packet = tokio::select! {
+            let maybe_packet = tokio::select! {
                 res = self.connection.read_packet() => res?,
-                _ =self.shutdown.recv() => {
+                _ = self.shutdown.recv() => {
                     return Ok(())
                 }
             };
+            let packet = match maybe_packet {
+                Some(packet) => packet,
+                None => return Ok(())
+            };
+            debug!("received packet {:?}", packet);
+            self.connection.write_packet(&packet).await?;
         }
-
         Ok(())
     }
 }

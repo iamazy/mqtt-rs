@@ -4,7 +4,6 @@ mod connection;
 mod shutdown;
 
 pub mod broker;
-pub mod client;
 
 pub const DEFAULT_PORT: &str = "8888";
 
