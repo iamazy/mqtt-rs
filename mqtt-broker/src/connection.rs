@@ -1,8 +1,8 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
+use tokio::io::{BufWriter, AsyncWriteExt};
 use tokio::net::TcpStream;
 use bytes::{BytesMut, BufMut};
 use mqtt_codec::{Error, Frame};
-use std::io;
+use std::io::{self};
 use mqtt_codec::packet::Packet;
 
 #[derive(Debug)]
@@ -24,7 +24,7 @@ impl Connection {
         Packet::parse(&mut self.buffer)
     }
 
-    pub async fn write_packet(&mut self, packet: &Packet) -> Result<(), Error> {
+    pub(crate) async fn write_packet(&mut self, packet: &Packet) -> io::Result<()> {
         let mut buf = vec![];
         match packet {
             Packet::Connect(connect) => {
@@ -77,6 +77,6 @@ impl Connection {
             }
         }
         self.stream.write_all(&buf).await?;
-        Ok(())
+        self.stream.flush().await
     }
 }

@@ -5,24 +5,16 @@ use crate::connection::Connection;
 use crate::shutdown::Shutdown;
 use tokio::macros::support::Future;
 use tokio::time::{self, Duration};
-use tracing::{debug, error, info, instrument};
+use tracing::{error, info, instrument};
 use std::net::SocketAddr;
-use tokio::io::AsyncWriteExt;
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use bytes::{BytesMut, BufMut};
-use mqtt_codec::disconnect::Disconnect;
-use mqtt_codec::Frame;
-use mqtt_codec::packet::Packet;
-
 
 #[derive(Debug)]
 struct Listener {
     listener: TcpListener,
     limit_connections: Arc<Semaphore>,
     notify_shutdown: broadcast::Sender<()>,
-    shutdown_complete_rx: mpsc::Receiver<()>,
-    shutdown_complete_tx: mpsc::Sender<()>,
+    shutdown_complete_rx: mpsc::UnboundedReceiver<()>,
+    shutdown_complete_tx: mpsc::UnboundedSender<()>,
 }
 
 #[derive(Debug)]
@@ -30,14 +22,14 @@ struct Handler {
     connection: Connection,
     limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
-    _shutdown_complete: mpsc::Sender<()>
+    _shutdown_complete: mpsc::UnboundedSender<()>
 }
 
 const MAX_CONNECTIONS: usize = 250;
 
 pub async fn run(listener: TcpListener, shutdown: impl Future) -> crate::Result<()> {
     let (notify_shutdown, _) = broadcast::channel(1);
-    let (shutdown_complete_tx, shutdown_complete_rx) = mpsc::channel(1);
+    let (shutdown_complete_tx, shutdown_complete_rx) = mpsc::unbounded_channel();
 
     let mut server = Listener {
         listener,
@@ -71,11 +63,11 @@ pub async fn run(listener: TcpListener, shutdown: impl Future) -> crate::Result<
 
 impl Listener {
     async fn run(&mut self) -> crate::Result<()> {
-        info!("accepting inbound connections");
+        info!("accepting unbound connections");
 
         loop {
             self.limit_connections.acquire().await.forget();
-            let (socket, addr) = self.accept().await?;
+            let (mut socket, addr) = self.accept().await?;
             let mut handler = Handler {
                 connection: Connection::new(socket),
                 limit_connections: self.limit_connections.clone(),
@@ -85,9 +77,6 @@ impl Listener {
 
             tokio::spawn(async move {
                 if let Err(err) = handler.run().await {
-                    // TODO can not send message to client
-                    let packet = Packet::Error("111".to_string());
-                    handler.connection.write_packet(&packet);
                     error!(cause = ?err, "connection error, address is {}:{}", addr.ip(), addr.port());
                 }
             });
