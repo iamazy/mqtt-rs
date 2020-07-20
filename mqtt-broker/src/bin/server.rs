@@ -2,10 +2,9 @@ use tokio::net::TcpListener;
 use std::panic;
 use mqtt_broker::{broker, DEFAULT_PORT, Config};
 use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_version};
-use tracing::{info, error, Level, instrument};
+use tracing::{info, error, Level};
 
 #[tokio::main]
-#[tracing::instrument]
 pub async fn main() -> mqtt_broker::Result<()> {
     let opts = app_from_crate!()
         .arg(
@@ -27,6 +26,6 @@ pub async fn main() -> mqtt_broker::Result<()> {
     panic::set_hook(Box::new(|panic_info| {
         error!("{:?}", panic_info);
     }));
-    info!("mqtt broker started, {}:{}", cfg.host, cfg.port);
+    info!("mqtt broker started at {}:{}", cfg.host, cfg.port);
     broker::run(listener, tokio::signal::ctrl_c()).await
 }
