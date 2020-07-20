@@ -1,6 +1,4 @@
 use core::fmt;
-use std::string::FromUtf8Error;
-use std::num::TryFromIntError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
