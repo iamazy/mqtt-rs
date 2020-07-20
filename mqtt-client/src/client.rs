@@ -7,12 +7,12 @@ use mqtt_codec::connect::Connect;
 use mqtt_codec::Frame;
 
 pub struct Client {
-    connection: Connection
+    pub connection: Connection
 }
 
 pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {
     let socket = TcpStream::connect(addr).await?;
-    let mut connection = Connection::new(socket);
+    let connection = Connection::new(socket);
     Ok(Client { connection })
 }
 
