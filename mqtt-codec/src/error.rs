@@ -1,4 +1,6 @@
 use core::fmt;
+use std::string::FromUtf8Error;
+use std::num::TryFromIntError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -21,8 +23,24 @@ pub enum Error {
 
     InvalidPacketType(u8),
 
-    MalformedPacket
+    MalformedPacket,
 
+    Incomplete,
+
+    Other(String)
+
+}
+
+impl From<String> for Error {
+    fn from(src: String) -> Error {
+        Error::Other(src.into())
+    }
+}
+
+impl From<&str> for Error {
+    fn from(src: &str) -> Error {
+        src.to_string().into()
+    }
 }
 
 impl std::error::Error for Error {}
@@ -39,7 +57,9 @@ impl fmt::Display for Error {
             Error::InvalidString(err) => err.fmt(fmt),
             Error::InvalidPropertyType(err) => err.fmt(fmt),
             Error::InvalidPacketType(_) => "Invalid packet type".fmt(fmt),
-            Error::MalformedPacket => "Malformed packet".fmt(fmt)
+            Error::MalformedPacket => "Malformed packet".fmt(fmt),
+            Error::Incomplete => "Incomplete Packet".fmt(fmt),
+            Error::Other(str) => str.fmt(fmt)
         }
     }
 }
