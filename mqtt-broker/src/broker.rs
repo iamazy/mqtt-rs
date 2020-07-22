@@ -1,16 +1,14 @@
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Semaphore};
 use std::sync::Arc;
-use crate::connection::Connection;
-use crate::shutdown::Shutdown;
-use tokio::macros::support::Future;
+use mqtt_core::{Connection, Shutdown, Result};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
 use std::net::SocketAddr;
 use bytes::{BytesMut, BufMut};
-use mqtt_codec::connack::ConnAck;
+use mqtt_codec::{ConnAck, Packet};
 use mqtt_codec::Frame;
-use mqtt_codec::packet::Packet;
+use futures::Future;
 
 #[derive(Debug)]
 struct Listener {
@@ -31,7 +29,7 @@ struct Handler {
 
 const MAX_CONNECTIONS: usize = 250;
 
-pub async fn run(listener: TcpListener, shutdown: impl Future) -> crate::Result<()> {
+pub async fn run(listener: TcpListener, shutdown: impl Future) -> Result<()> {
     let (notify_shutdown, _) = broadcast::channel(1);
     let (shutdown_complete_tx, shutdown_complete_rx) = mpsc::unbounded_channel();
 
@@ -66,7 +64,7 @@ pub async fn run(listener: TcpListener, shutdown: impl Future) -> crate::Result<
 }
 
 impl Listener {
-    async fn run(&mut self) -> crate::Result<()> {
+    async fn run(&mut self) -> Result<()> {
         info!("accepting unbound connections");
 
         loop {
@@ -88,7 +86,7 @@ impl Listener {
     }
 
 
-    async fn accept(&mut self) -> crate::Result<(TcpStream, SocketAddr)> {
+    async fn accept(&mut self) -> Result<(TcpStream, SocketAddr)> {
 
         let mut backoff = 1;
         loop {
@@ -109,7 +107,7 @@ impl Listener {
 
 impl Handler {
     #[instrument(skip(self))]
-    async fn run(&mut self) -> crate::Result<()> {
+    async fn run(&mut self) -> Result<()> {
         while !self.shutdown.is_shutdown() {
             let maybe_packet = tokio::select! {
                 res = self.connection.read_packet() => res?,

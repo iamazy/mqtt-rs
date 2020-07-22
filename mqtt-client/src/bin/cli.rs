@@ -3,7 +3,7 @@ use mqtt_codec::Error;
 use tracing::{debug, Level, error};
 
 #[tokio::main(basic_scheduler)]
-async fn main() -> mqtt_client::Result<()> {
+async fn main() -> mqtt_core::Result<()> {
     let subscriber = tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .finish();

@@ -1,24 +1,60 @@
-pub mod packet;
-pub mod fixed_header;
-pub mod publish;
-pub mod puback;
-pub mod pubrec;
-pub mod pubrel;
-pub mod pubcomp;
-pub mod subscribe;
-pub mod suback;
-pub mod unsubscribe;
-pub mod unsuback;
-pub mod pingreq;
-pub mod pingresp;
-pub mod disconnect;
-pub mod auth;
-pub mod protocol;
-pub mod connect;
-pub mod connack;
-pub mod error;
+mod packet;
+pub use packet::{PacketType, Packet, PacketCodec, PacketId};
 
+mod fixed_header;
+pub use fixed_header::FixedHeader;
+
+pub mod publish;
+pub use publish::{Publish, PublishVariableHeader, Qos};
+
+mod puback;
+pub use puback::{PubAck, PubAckReasonCode, PubAckVariableHeader};
+
+mod pubrec;
+pub use pubrec::{PubRec, PubRecReasonCode, PubRecVariableHeader};
+
+mod pubrel;
+pub use pubrel::{PubRel, PubRelReasonCode, PubRelVariableHeader};
+
+mod pubcomp;
+pub use pubcomp::{PubComp, PubCompReasonCode, PubCompVariableHeader};
+
+mod subscribe;
+pub use subscribe::{Subscribe, SubscribeReasonCode, SubscribeVariableHeader, SubscriptionOptions};
+
+mod suback;
+pub use suback::{SubAck, SubAckVariableHeader};
+
+mod unsubscribe;
+pub use unsubscribe::{UnSubscribe, UnSubscribeReasonCode, UnSubscribeVariableHeader};
+
+mod unsuback;
+pub use unsuback::{UnSubAck, UnSubAckVariableHeader};
+
+mod pingreq;
+pub use pingreq::PingReq;
+
+mod pingresp;
+pub use pingresp::PingResp;
+
+mod disconnect;
+pub use disconnect::{Disconnect, DisconnectReasonCode, DisconnectVariableHeader};
+
+mod auth;
+pub use auth::{Auth, AuthenticateReasonCode, AuthVariableHeader};
+
+mod protocol;
+pub use protocol::Protocol;
+
+mod connect;
+pub use connect::{Connect, ConnectFlags, ConnectPayload, ConnectReasonCode, ConnectVariableHeader};
+
+mod connack;
+pub use connack::{ConnAck, ConnAckFlags, ConnAckVariableHeader};
+
+mod error;
 pub use error::Error;
+
 use bytes::{BufMut, BytesMut, Bytes, Buf};
 use std::collections::HashMap;
 

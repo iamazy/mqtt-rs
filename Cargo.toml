@@ -3,5 +3,6 @@
 members = [
   "mqtt-codec",
   "mqtt-broker",
-  "mqtt-client"
+  "mqtt-client",
+  "mqtt-core"
 ]

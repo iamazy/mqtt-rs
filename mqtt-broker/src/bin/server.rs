@@ -5,7 +5,7 @@ use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_v
 use tracing::{info, error, Level};
 
 #[tokio::main]
-pub async fn main() -> mqtt_broker::Result<()> {
+pub async fn main() -> mqtt_core::Result<()> {
     let opts = app_from_crate!()
         .arg(
             clap::Arg::with_name("config")

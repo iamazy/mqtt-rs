@@ -1,16 +1,16 @@
-use crate::connection::Connection;
+use mqtt_core::Connection;
 use tokio::net::{ToSocketAddrs, TcpStream};
-use mqtt_codec::packet::Packet;
+use mqtt_codec::{Connect, Packet};
+use mqtt_core::Result;
 use tracing::instrument;
 use bytes::{BytesMut, BufMut};
-use mqtt_codec::connect::Connect;
 use mqtt_codec::Frame;
 
 pub struct Client {
     pub connection: Connection
 }
 
-pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {
+pub async fn connect<T: ToSocketAddrs>(addr: T) -> Result<Client> {
     let socket = TcpStream::connect(addr).await?;
     let connection = Connection::new(socket);
     Ok(Client { connection })
@@ -19,7 +19,7 @@ pub async fn connect<T: ToSocketAddrs>(addr: T) -> crate::Result<Client> {
 impl Client {
 
     #[instrument(skip(self))]
-    pub async fn connect(&mut self) -> crate::Result<()> {
+    pub async fn connect(&mut self) -> Result<()> {
         // Send Connect Packet to Broker
         let connect_bytes = &[
             0b0001_0000u8, 52,  // fixed header

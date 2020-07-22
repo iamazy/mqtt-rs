@@ -14,7 +14,10 @@ path = "src/bin/server.rs"
 [dependencies]
 tokio = { version = "0.2", features = ["full"] }
 tokio-util = { version = "0.3", features = ["codec"] }
+futures = "0.3"
+futures-util = "0.3"
 mqtt-codec = { version = "0.1.0", path = "../mqtt-codec" }
+mqtt-core = { version = "0.1.0", path = "../mqtt-core"}
 serde = "1"
 serde_derive = "1"
 bytes = "0.5"
