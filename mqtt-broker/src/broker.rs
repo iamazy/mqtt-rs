@@ -1,13 +1,14 @@
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Semaphore};
 use std::sync::Arc;
-use mqtt_core::{Connection, Shutdown, Result};
+use mqtt_core::{
+    Connection, Shutdown, Result,
+    codec::{ ConnAck, Packet, Frame }
+};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
 use std::net::SocketAddr;
 use bytes::{BytesMut, BufMut};
-use mqtt_codec::{ConnAck, Packet};
-use mqtt_codec::Frame;
 use futures::Future;
 
 #[derive(Debug)]

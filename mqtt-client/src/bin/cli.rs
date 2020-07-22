@@ -1,5 +1,5 @@
 use mqtt_client::client;
-use mqtt_codec::Error;
+use mqtt_core::codec::Error;
 use tracing::{debug, Level, error};
 
 #[tokio::main(basic_scheduler)]

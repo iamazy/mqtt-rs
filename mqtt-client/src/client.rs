@@ -1,10 +1,10 @@
 use mqtt_core::Connection;
 use tokio::net::{ToSocketAddrs, TcpStream};
-use mqtt_codec::{Connect, Packet};
-use mqtt_core::Result;
+use mqtt_core::{ Result,
+    codec::{ Connect, Packet, Frame}
+};
 use tracing::instrument;
 use bytes::{BytesMut, BufMut};
-use mqtt_codec::Frame;
 
 pub struct Client {
     pub connection: Connection

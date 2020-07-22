@@ -4,7 +4,7 @@ pub use packet::{PacketType, Packet, PacketCodec, PacketId};
 mod fixed_header;
 pub use fixed_header::FixedHeader;
 
-pub mod publish;
+mod publish;
 pub use publish::{Publish, PublishVariableHeader, Qos};
 
 mod puback;
