@@ -4,7 +4,7 @@ use crate::{FromToU8, Error, Mqtt5Property, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubRec {
     fixed_header: FixedHeader,
     variable_header: PubRecVariableHeader
@@ -36,9 +36,13 @@ impl Frame<PubRec> for PubRec {
         assert_eq!(fixed_header.retain, false, "The retain of PubRec Fixed Header must be set to false");
         PubRec::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubRecVariableHeader {
     packet_id: PacketId,
     pubrec_reason_code: PubRecReasonCode,
@@ -84,32 +88,42 @@ impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
         })
 
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRecReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
-    Success,
+    Success = 0x00,
     /// 16[0x10], The message is accepted but there are no subscribers. This is sent only by the Server.
     /// If the Server knows that there are no matching subscribers, it MAY use this Reason Code instead of 0x00 (Success)
-    NoMatchingSubscribers,
+    NoMatchingSubscribers = 0x10,
     /// 128[0x80], The receiver does not accept the publish but either does not want to reveal the reason,
     /// or it does not match one of the other values
-    UnspecifiedError,
+    UnspecifiedError = 0x80,
     /// 131[0x83], The PUBLISH is valid but the receiver is not willing to accept it
-    ImplementationSpecificError,
+    ImplementationSpecificError = 0x83,
     /// 135[0x87], The PUBLISH is not authorized
-    NotAuthorized,
+    NotAuthorized = 0x87,
     /// 144[0x90], The Topic Name is not malformed, but is not accepted by this Client or Server
-    TopicNameInvalid,
+    TopicNameInvalid = 0x90,
     /// 145[0x91], The Packet Identifier is already in use. This might indicate a mismatch in the
     /// Session State between the Client and Server.
-    PacketIdentifierInUse,
+    PacketIdentifierInUse = 0x91,
     /// 151[0x97], An implementation or administrative imposed limit has been exceeded
-    QuotaExceeded,
+    QuotaExceeded = 0x97,
     /// 153[0x99], The payload format does not match the one specified in the Payload Format Indicator
-    PayloadFormatInvalid,
+    PayloadFormatInvalid = 0x99,
+}
+
+impl Default for PubRecReasonCode {
+    fn default() -> Self {
+        PubRecReasonCode::UnspecifiedError
+    }
 }
 
 impl FromToU8<PubRecReasonCode> for PubRecReasonCode {

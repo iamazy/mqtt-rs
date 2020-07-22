@@ -5,7 +5,7 @@ use crate::subscribe::SubscribeReasonCode;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SubAck {
     fixed_header: FixedHeader,
     variable_header: SubAckVariableHeader,
@@ -52,9 +52,13 @@ impl Frame<SubAck> for SubAck {
         assert_eq!(fixed_header.retain, false, "The retain of SubAck Fixed Header must be set to false");
         SubAck::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SubAckVariableHeader {
     packet_id: PacketId,
     suback_property: Mqtt5Property,
@@ -92,6 +96,10 @@ impl Frame<SubAckVariableHeader> for SubAckVariableHeader {
             packet_id,
             suback_property
         })
+    }
+
+    fn length(&self) -> usize {
+        unimplemented!()
     }
 }
 

@@ -29,6 +29,16 @@ impl Frame<Protocol> for Protocol {
             _ => Err(Error::InvalidProtocol(name.into(), level))
         }
     }
+
+    fn length(&self) -> usize {
+        7
+    }
+}
+
+impl Default for Protocol {
+    fn default() -> Self {
+        Protocol::MQTT5
+    }
 }
 
 #[cfg(test)]

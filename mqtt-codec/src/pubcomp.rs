@@ -4,7 +4,7 @@ use crate::{FromToU8, Error, Mqtt5Property, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubComp {
     fixed_header: FixedHeader,
     variable_header: PubCompVariableHeader
@@ -36,9 +36,13 @@ impl Frame<PubComp> for PubComp {
         assert_eq!(fixed_header.retain, false, "The retain of PubComp Fixed Header must be set to false");
         PubComp::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubCompVariableHeader {
     packet_id: PacketId,
     pubcomp_reason_code: PubCompReasonCode,
@@ -83,6 +87,10 @@ impl Frame<PubCompVariableHeader> for PubCompVariableHeader {
         })
 
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 
@@ -93,6 +101,12 @@ pub enum PubCompReasonCode {
     /// 146[0x92], The Packet Identifier is not known. This is not an error during recovery,
     /// but at other times indicates a mismatch between the Session State on the Client and Server.
     PacketIdentifierNotFound,
+}
+
+impl Default for PubCompReasonCode {
+    fn default() -> Self {
+        PubCompReasonCode::PacketIdentifierNotFound
+    }
 }
 
 impl FromToU8<PubCompReasonCode> for PubCompReasonCode {

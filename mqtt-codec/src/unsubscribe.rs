@@ -4,7 +4,7 @@ use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubscribe {
     fixed_header: FixedHeader,
     variable_header: UnSubscribeVariableHeader,
@@ -52,9 +52,13 @@ impl Frame<UnSubscribe> for UnSubscribe {
         assert_eq!(fixed_header.retain, false, "The retain of Unsubscribe Fixed Header must be set to false");
         UnSubscribe::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubscribeVariableHeader {
     packet_id: PacketId,
     unsubscribe_property: Mqtt5Property
@@ -92,25 +96,35 @@ impl Frame<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
             unsubscribe_property
         })
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnSubscribeReasonCode {
     /// 0[0x00], The subscription is deleted.
-    Success,
+    Success = 0x00,
     /// 17[0x11], No matching Topic Filter is being used by the Client.
-    NoSubscriptionFound,
+    NoSubscriptionFound = 0x11,
     /// 128[0x80], The unsubscribe could not be completed and the Server
     /// either does not wish to reveal the reason or none of the other Reason Codes apply.
-    UnspecifiedError,
-    /// 131[0x87], The UNSUBSCRIBE is valid but the Server does not accept it.
-    ImplementationSpecificError,
+    UnspecifiedError = 0x80,
+    /// 131[0x83], The UNSUBSCRIBE is valid but the Server does not accept it.
+    ImplementationSpecificError = 0x83,
     /// 135[0x87], The Client is not authorized to unsubscribe.
-    NotAuthorized,
-    /// 143[0X8F], The Topic Filter is correctly formed but is not allowed for this Client.
-    TopicFilterInValid,
-    /// 145[0X91], The specified Packet Identifier is already in use.
-    PacketIdentifierInUse
+    NotAuthorized = 0x87,
+    /// 143[0x8F], The Topic Filter is correctly formed but is not allowed for this Client.
+    TopicFilterInValid = 0x8F,
+    /// 145[0x91], The specified Packet Identifier is already in use.
+    PacketIdentifierInUse = 0x91
+}
+
+impl Default for UnSubscribeReasonCode {
+    fn default() -> Self {
+        UnSubscribeReasonCode::UnspecifiedError
+    }
 }
 
 impl FromToU8<UnSubscribeReasonCode> for UnSubscribeReasonCode {

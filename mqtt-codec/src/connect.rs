@@ -5,7 +5,7 @@ use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Connect {
     fixed_header: FixedHeader,
     variable_header: ConnectVariableHeader,
@@ -46,9 +46,13 @@ impl Frame<Connect> for Connect {
         assert_eq!(fixed_header.retain, false, "The retain of Connect Fixed Header must be set to false");
         Connect::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        self.fixed_header.length() + self.variable_header.length() + self.payload.length(&self.variable_header.connect_flags)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnectVariableHeader {
     pub protocol: Protocol,
     pub connect_flags: ConnectFlags,
@@ -98,9 +102,13 @@ impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
             connect_property,
         })
     }
+
+    fn length(&self) -> usize {
+        self.protocol.length() + self.connect_flags.length() + 2 + self.connect_property.length()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnectFlags {
     clean_start: bool,
     will_flag: bool,
@@ -171,9 +179,13 @@ impl Frame<ConnectFlags> for ConnectFlags {
             username_flag,
         })
     }
+
+    fn length(&self) -> usize {
+        1
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnectPayload {
     client_id: String,
     will_property: Option<Mqtt5Property>,
@@ -258,55 +270,65 @@ impl ConnectPayload {
 
         Ok(connect_payload)
     }
+
+    fn length(&self, connect_flags: &ConnectFlags) -> usize {
+        0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConnectReasonCode {
     /// 0[0x00], Connection accepted
-    Success,
+    Success = 0x00,
     /// 128[0x80], The Server does not wish to reveal the reason for the failure,
     /// or none of the other Reason Codes apply.
-    UnspecifiedError,
+    UnspecifiedError = 0x80,
     /// 129[0x81], Data within the `CONNECT` packet could not be correctly parsed
-    MalformedPacket,
+    MalformedPacket = 0x81,
     /// 130[0x82], Data in the `CONNECT` packet does not conform to this specification
-    ProtocolError,
+    ProtocolError = 0x82,
     /// 131[0x83], The `CONNECT` is valid but is not accepted by this Server
-    ImplementationSpecificError,
+    ImplementationSpecificError = 0x83,
     /// 132[0x84], The Server does not support the version of the MQTT protocol requested by the Client.
-    UnsupportedProtocolVersion,
+    UnsupportedProtocolVersion = 0x84,
     /// 133[0x85], The Client Identifier is a valid string but is not allowed by the Server
-    ClientIdentifierNotValid,
+    ClientIdentifierNotValid = 0x85,
     /// 134[0x86], The Server does not accept the User Name or Password specified by the Client
-    BadUsernameOrPassword,
+    BadUsernameOrPassword = 0x86,
     /// 135[0x87], The Client is not authorized to connect
-    NotAuthorized,
+    NotAuthorized = 0x87,
     /// 136[0x88], The MQTT Server is not available
-    ServerUnavailable,
+    ServerUnavailable = 0x88,
     /// 137[0x89], The Server is busy. Try again later
-    ServerBusy,
+    ServerBusy = 0x89,
     /// 138[0x8A], This Client has been banned by administrative action. Contact the server administrator
-    Banned,
+    Banned = 0x8A,
     /// 140[0x8C], The authentication method is not supported or does not match the authentication method currently in use
-    BadAuthenticationMethod,
+    BadAuthenticationMethod = 0x8C,
     /// 144[0x90], The Will Topic Name is not malformed, but is not accepted by this Server
-    TopicNameInvalid,
+    TopicNameInvalid = 0x90,
     /// 149[0x95], The `CONNECT` packet exceeded the maximum permissible size
-    PacketTooLarge,
+    PacketTooLarge = 0x95,
     /// 151[0x97], An implementation or administrative imposed limit has been exceeded
-    QuotaExceeded,
+    QuotaExceeded = 0x97,
     /// 153[0x99], The Will Payload does not match the specified Payload Format Indicator
-    PayloadFormatInvalid,
+    PayloadFormatInvalid = 0x99,
     /// 154[0x9A], The Server does not support retained messages, and Will Retain was set to 1
-    RetainNotSupported,
+    RetainNotSupported = 0x9A,
     /// 155[0x9B], The Server does not support the QoS set in Will QoS
-    QoSNotSupported,
+    QoSNotSupported = 0x9B,
     /// 156[0x9C], The Client should temporarily use another server
-    UseAnotherServer,
+    UseAnotherServer = 0x9C,
     /// 157[0x9D], The Client should permanently use another server
-    ServerMoved,
+    ServerMoved = 0x9D,
     /// 159[0x9F], The connection rate limit has been exceeded
-    ConnectionRateExceeded,
+    ConnectionRateExceeded = 0x9F,
+}
+
+impl Default for ConnectReasonCode {
+    fn default() -> Self {
+        ConnectReasonCode::UnspecifiedError
+    }
 }
 
 impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
@@ -370,7 +392,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
 mod test {
     use bytes::{BytesMut, BufMut};
     use crate::connect::{ConnectVariableHeader, Connect};
-    use crate::Frame;
+    use crate::{Frame, ConnectPayload, ConnectFlags};
 
     #[test]
     fn test_variable_header_example() {
@@ -437,5 +459,11 @@ mod test {
         connect.to_buf(&mut buf);
         println!("{:?}", buf.to_vec());
         assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
+    }
+
+    #[test]
+    fn test_default() {
+        let default = Connect::default();
+        println!("{:?}", default);
     }
 }

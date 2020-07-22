@@ -4,7 +4,7 @@ use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string, wr
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Subscribe {
     fixed_header: FixedHeader,
     variable_header: SubscribeVariableHeader,
@@ -54,9 +54,13 @@ impl Frame<Subscribe> for Subscribe {
         assert_eq!(fixed_header.retain, false, "The retain of Subscribe Fixed Header must be set to false");
         Subscribe::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SubscribeVariableHeader {
     packet_id: PacketId,
     subscribe_property: Mqtt5Property,
@@ -94,9 +98,13 @@ impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
             subscribe_property,
         })
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SubscriptionOptions {
     maximum_qos: Qos,
     no_local: bool,
@@ -133,37 +141,47 @@ impl Frame<SubscriptionOptions> for SubscriptionOptions {
             retain_handling,
         })
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SubscribeReasonCode {
     /// 0[0x00], The subscription is accepted and the maximum QoS sent will be QoS 0.
     /// This might be a lower QoS than was requested.
-    GrantedQos0,
+    GrantedQos0 = 0x00,
     /// 1[0x01], The subscription is accepted and the maximum QoS sent will be QoS 1.
     /// This might be a lower QoS than was requested.
-    GrantedQos1,
+    GrantedQos1 = 0x01,
     /// 2[0x02], The subscription is accepted and any received QoS will be sent to this subscription.
-    GrantedQos2,
+    GrantedQos2 = 0x02,
     /// 128[0x80], The subscription is not accepted and the Server either does not wish to reveal the
     /// reason or none of the other Reason Codes apply.
-    UnspecifiedError,
+    UnspecifiedError = 0x80,
     /// 131[0x83], The SUBSCRIBE is valid but the Server does not accept it.
-    ImplementationSpecificError,
+    ImplementationSpecificError = 0x83,
     /// 135[0x87], The Client is not authorized to make this subscription.
-    NotAuthorized,
+    NotAuthorized = 0x87,
     /// 143[0x8F], The Topic Filter is correctly formed but is not allowed for this Client.
-    TopicFilterInvalid,
-    /// 145[0X91], The specified Packet Identifier is already in use.
-    PacketIdentifierInUse,
-    /// 151[0X97], An implementation or administrative imposed limit has been exceeded.
-    QuotaExceeded,
-    /// 158[0X9E], The Server does not support Shared Subscriptions for this Client.
-    SharedSubscriptionNotSupported,
-    /// 161[0XA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
-    SubscriptionIdentifierNotSupported,
-    /// 162[0XA2], The Server does not support Wildcard subscription; the subscription is not accepted.
-    WildcardSubscriptionNotSupported,
+    TopicFilterInvalid = 0x8F,
+    /// 145[0x91], The specified Packet Identifier is already in use.
+    PacketIdentifierInUse = 0x91,
+    /// 151[0x97], An implementation or administrative imposed limit has been exceeded.
+    QuotaExceeded = 0x97,
+    /// 158[0x9E], The Server does not support Shared Subscriptions for this Client.
+    SharedSubscriptionNotSupported = 0x9E,
+    /// 161[0xA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
+    SubscriptionIdentifierNotSupported = 0xA1,
+    /// 162[0xA2], The Server does not support Wildcard subscription; the subscription is not accepted.
+    WildcardSubscriptionNotSupported = 0xA2,
+}
+
+impl Default for SubscribeReasonCode {
+    fn default() -> Self {
+        SubscribeReasonCode::UnspecifiedError
+    }
 }
 
 impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {

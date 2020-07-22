@@ -21,6 +21,22 @@ impl PacketCodec<Auth> for Auth {
     }
 }
 
+impl Default for Auth {
+    fn default() -> Self {
+        let variable_header = AuthVariableHeader::default();
+        Auth {
+            fixed_header: FixedHeader {
+                packet_type: PacketType::AUTH,
+                dup: false,
+                qos: Qos::AtMostOnce,
+                retain: false,
+                remaining_length: 0,
+            },
+            variable_header,
+        }
+    }
+}
+
 impl Frame<Auth> for Auth {
     fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut len = self.fixed_header.to_buf(buf);
@@ -36,18 +52,20 @@ impl Frame<Auth> for Auth {
         assert_eq!(fixed_header.retain, false, "The retain of Auth Fixed Header must be set to false");
         Auth::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        self.fixed_header.length() + self.variable_header.length()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct AuthVariableHeader {
     reason_code: AuthenticateReasonCode,
     auth_property: Mqtt5Property
 }
 
 impl AuthVariableHeader {
-
     fn check_auth_property(auth_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in auth_property.properties.keys() {
             let key = *key;
             match key {
@@ -71,23 +89,33 @@ impl Frame<AuthVariableHeader> for AuthVariableHeader {
         let reason_code = AuthenticateReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse Authenticate Reason Code");
         let mut auth_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse Auth Propertoes");
+            .expect("Failed to parse Auth Properties");
         AuthVariableHeader::check_auth_property(&mut auth_property)?;
         Ok(AuthVariableHeader {
             reason_code,
             auth_property
         })
     }
+
+    fn length(&self) -> usize {
+        1 + self.auth_property.length()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AuthenticateReasonCode{
     /// 0[0x00], Authentication is successful
-    Success,
+    Success = 0x00,
     /// 24[0x18], Continue the authentication with another step
-    ContinueAuthentication,
+    ContinueAuthentication = 0x18,
     /// 25[0x19], Initiate a re-authentication
-    ReAuthenticate
+    ReAuthenticate = 0x19
+}
+
+impl Default for AuthenticateReasonCode {
+    fn default() -> Self {
+        AuthenticateReasonCode::ReAuthenticate
+    }
 }
 
 impl FromToU8<AuthenticateReasonCode> for AuthenticateReasonCode {

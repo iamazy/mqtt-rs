@@ -5,7 +5,7 @@ use crate::{Mqtt5Property, Frame, Error, FromToU8, write_variable_bytes};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubAck {
     fixed_header: FixedHeader,
     variable_header: UnSubAckVariableHeader,
@@ -52,9 +52,13 @@ impl Frame<UnSubAck> for UnSubAck {
         assert_eq!(fixed_header.retain, false, "The retain of UnSubAck Fixed Header must be set to false");
         UnSubAck::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubAckVariableHeader {
     packet_id: PacketId,
     unsuback_property: Mqtt5Property
@@ -91,6 +95,10 @@ impl Frame<UnSubAckVariableHeader> for UnSubAckVariableHeader {
             packet_id,
             unsuback_property
         })
+    }
+
+    fn length(&self) -> usize {
+        unimplemented!()
     }
 }
 

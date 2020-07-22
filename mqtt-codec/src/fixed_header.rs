@@ -3,7 +3,7 @@ use crate::publish::Qos;
 use crate::{Frame, Error, FromToU8, write_variable_bytes, read_variable_bytes};
 use bytes::{BufMut, BytesMut, Buf};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FixedHeader {
     pub packet_type: PacketType,
     pub dup: bool,
@@ -46,5 +46,9 @@ impl Frame<FixedHeader> for FixedHeader {
             retain,
             remaining_length,
         })
+    }
+
+    fn length(&self) -> usize {
+        unimplemented!()
     }
 }

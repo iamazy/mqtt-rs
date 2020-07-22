@@ -46,35 +46,41 @@ impl Default for PacketId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PacketType {
     /// 1, Client to server, Connection request
-    CONNECT,
+    CONNECT = 1,
     /// 2, Server to client, Connect acknowledgement
-    CONNACK,
+    CONNACK = 2,
     /// 3, Two-way, Publish message
-    PUBLISH,
+    PUBLISH = 3,
     /// 4, Two-way, Publish acknowledgement (QoS 1)
-    PUBACK,
+    PUBACK = 4,
     /// 5, Two-way, Publish received (QoS 2 delivery part 1)
-    PUBREC,
+    PUBREC = 5,
     /// 6, Two-way, Publish release (QoS 2 delivery part 2)
-    PUBREL,
+    PUBREL = 6,
     /// 7, Two-way, Publish complete (Qos 2 delivery part 3)
-    PUBCOMP,
+    PUBCOMP = 7,
     /// 8, Client to server, Subscribe request
-    SUBSCRIBE,
+    SUBSCRIBE = 8,
     /// 9, Server to client, Subscribe acknowledgement
-    SUBACK,
+    SUBACK = 9,
     /// 10, Client to server, Unsubscribe request
-    UNSUBSCRIBE,
+    UNSUBSCRIBE = 10,
     /// 11, Server to client, Unsubscribe acknowledgement
-    UNSUBACK,
+    UNSUBACK = 11,
     /// 12, Client to server, Ping request
-    PINGREQ,
+    PINGREQ = 12,
     /// 13, Server to client, Ping response
-    PINGRESP,
+    PINGRESP = 13,
     /// 14, Two-way, Disconnect notification
-    DISCONNECT,
+    DISCONNECT = 14,
     /// 15, Two-way, Authentication exchange
-    AUTH
+    AUTH = 15
+}
+
+impl Default for PacketType {
+    fn default() -> Self {
+        PacketType::DISCONNECT
+    }
 }
 
 impl FromToU8<PacketType> for PacketType {

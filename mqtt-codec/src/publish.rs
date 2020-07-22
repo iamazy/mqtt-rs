@@ -46,6 +46,10 @@ impl Frame<Publish> for Publish {
         assert_eq!(fixed_header.packet_type, PacketType::PUBLISH);
         Publish::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -89,16 +93,28 @@ impl Frame<PublishVariableHeader> for PublishVariableHeader {
             publish_property,
         })
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Qos {
     /// Qos value: 0
-    AtMostOnce,
+    AtMostOnce = 0,
     /// Qos value: 1
-    AtLeastOnce,
+    AtLeastOnce = 1,
     /// Qos value: 2
-    ExactlyOnce,
+    ExactlyOnce = 2,
+    /// Reserved, must not be used
+    Reserved = 3
+}
+
+impl Default for Qos {
+    fn default() -> Self {
+        Qos::AtMostOnce
+    }
 }
 
 impl FromToU8<Qos> for Qos {
@@ -106,7 +122,8 @@ impl FromToU8<Qos> for Qos {
         match *self {
             Qos::AtMostOnce => 0,
             Qos::AtLeastOnce => 1,
-            Qos::ExactlyOnce => 2
+            Qos::ExactlyOnce => 2,
+            _ => 3
         }
     }
 

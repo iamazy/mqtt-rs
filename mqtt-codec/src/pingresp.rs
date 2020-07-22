@@ -4,7 +4,7 @@ use bytes::{BufMut, BytesMut};
 use crate::publish::Qos;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PingResp {
     fixed_header: FixedHeader
 }
@@ -31,6 +31,10 @@ impl Frame<PingResp> for PingResp {
         assert_eq!(fixed_header.retain, false, "The retain of PingResp Fixed Header must be set to false");
         assert_eq!(fixed_header.remaining_length, 0);
         PingResp::from_buf_extra(buf, fixed_header)
+    }
+
+    fn length(&self) -> usize {
+        unimplemented!()
     }
 }
 

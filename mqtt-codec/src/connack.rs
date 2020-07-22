@@ -5,7 +5,7 @@ use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnAck {
     fixed_header: FixedHeader,
     variable_header: ConnAckVariableHeader,
@@ -36,9 +36,13 @@ impl Frame<ConnAck> for ConnAck {
         assert_eq!(fixed_header.retain, false, "The retain of ConnAck Fixed Header must be set to false");
         ConnAck::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        self.fixed_header.length() + self.variable_header.length()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnAckVariableHeader {
     connack_flags: ConnAckFlags,
     connect_reason_code: ConnectReasonCode,
@@ -84,9 +88,13 @@ impl Frame<ConnAckVariableHeader> for ConnAckVariableHeader {
             connack_property
         })
     }
+
+    fn length(&self) -> usize {
+        2 + self.connack_property.length()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnAckFlags {
     session_present: bool,
 }
@@ -114,6 +122,10 @@ impl Frame<ConnAckFlags> for ConnAckFlags {
         Ok(ConnAckFlags {
             session_present
         })
+    }
+
+    fn length(&self) -> usize {
+        1
     }
 }
 

@@ -4,7 +4,7 @@ use crate::{FromToU8, Error, Mqtt5Property, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubRel {
     fixed_header: FixedHeader,
     variable_header: PubRelVariableHeader
@@ -36,9 +36,13 @@ impl Frame<PubRel> for PubRel {
         assert_eq!(fixed_header.retain, false, "The retain of PubRel Fixed Header must be set to false");
         PubRel::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubRelVariableHeader {
     packet_id: PacketId,
     pubrel_reason_code: PubRelReasonCode,
@@ -83,16 +87,26 @@ impl Frame<PubRelVariableHeader> for PubRelVariableHeader {
         })
 
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRelReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
-    Success,
+    Success = 0x00,
     /// 146[0x92], The Packet Identifier is not known. This is not an error during recovery,
     /// but at other times indicates a mismatch between the Session State on the Client and Server.
-    PacketIdentifierNotFound,
+    PacketIdentifierNotFound = 0x92,
+}
+
+impl Default for PubRelReasonCode {
+    fn default() -> Self {
+        PubRelReasonCode::PacketIdentifierNotFound
+    }
 }
 
 impl FromToU8<PubRelReasonCode> for PubRelReasonCode {

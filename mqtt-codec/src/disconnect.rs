@@ -4,7 +4,7 @@ use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Disconnect {
     fixed_header: FixedHeader,
     variable_header: DisconnectVariableHeader
@@ -37,9 +37,13 @@ impl Frame<Disconnect> for Disconnect {
         assert_eq!(fixed_header.retain, false, "The retain of Disconnect Fixed Header must be set to false");
         Disconnect::from_buf_extra(buf, fixed_header)
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DisconnectVariableHeader {
     reason_code: DisconnectReasonCode,
     disconnect_property: Mqtt5Property
@@ -79,69 +83,79 @@ impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
             disconnect_property
         })
     }
+
+    fn length(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DisconnectReasonCode {
     /// 0[0x00], Close the connection normally. Do not send the Will Message.
-    NormalDisconnection,
+    NormalDisconnection = 0x00,
     /// 4[0x04], The Client wishes to disconnect but requires that the Server also publishes its Will Message.
-    DisconnectWithWillMessage,
+    DisconnectWithWillMessage = 0x04,
     /// 128[0x80], The Connection is closed but the sender either does not wish to reveal the reason, or none of the other Reason Codes apply.
-    UnspecifiedError,
+    UnspecifiedError = 0x80,
     /// 129[0x81], The received packet does not conform to this specification.
-    MalformedPacket,
+    MalformedPacket = 0x81,
     /// 130[0x82], An unexpected or out of order packet was received.
-    ProtocolError,
+    ProtocolError = 0x82,
     /// 131[0x83], The packet received is valid but cannot be processed by this implementation.
-    ImplementationSpecificError,
+    ImplementationSpecificError = 0x83,
     /// 135[0x87], The request is not authorized.
-    NotAuthorized,
+    NotAuthorized = 0x87,
     /// 137[0x89], The Server is busy and cannot continue processing requests from this Client.
-    ServerBusy,
+    ServerBusy = 0x89,
     /// 139[0x8B], The Server is shutting down.
-    ServerShuttingDown,
+    ServerShuttingDown = 0x8B,
     /// 141[0x8D], The Connection is closed because no packet has been received for 1.5 times the Keepalive time.
-    KeepAliveTimeout,
+    KeepAliveTimeout = 0x8D,
     /// 142[0x8E], Another Connection using the same ClientID has connected causing this Connection to be closed.
-    SessionTakenOver,
+    SessionTakenOver = 0x8E,
     /// 143[0x8F], The Topic Filter is correctly formed, but is not accepted by this Sever.
-    TopicFilterInvalid,
+    TopicFilterInvalid = 0x8F,
     /// 144[0x90], The Topic Name is correctly formed, but is not accepted by this Client or Server.
-    TopicNameInvalid,
+    TopicNameInvalid = 0x90,
     /// 147[0x93], The Client or Server has received more than Receive Maximum publication for which it has not sent PUBACK or PUBCOMP.
-    ReceiveMaximumExceeded,
+    ReceiveMaximumExceeded = 0x93,
     /// 148[0x94], The Client or Server has received a PUBLISH packet containing a Topic Alias which is greater than the Maximum Topic Alias it sent in the CONNECT or CONNACK packet.
-    TopicAliasInvalid,
+    TopicAliasInvalid = 0x94,
     /// 149[0x95], The packet size is greater than Maximum Packet Size for this Client or Server.
-    PacketTooLarge,
+    PacketTooLarge = 0x95,
     /// 150[0x96], The received data rate is too high.
-    MessageRateTooHigh,
+    MessageRateTooHigh = 0x96,
     /// 151[0x97], An implementation or administrative imposed limit has been exceeded.
-    QuotaExceeded,
+    QuotaExceeded = 0x97,
     /// 152[0x98], The Connection is closed due to an administrative action.
-    AdministrativeAction,
+    AdministrativeAction = 0x98,
     /// 153[0x99], The payload format does not match the one specified by the Payload Format Indicator.
-    PayloadFormatInvalid,
+    PayloadFormatInvalid = 0x99,
     /// 154[0x9A], The Server has does not support retained messages.
-    RetainNotSupported,
+    RetainNotSupported = 0x9A,
     /// 155[0x9B], The Client specified a QoS greater than the QoS specified in a Maximum QoS in the CONNACK.
-    QosNotSupported,
+    QosNotSupported = 0x9B,
     /// 156[0x9C], The Client should temporarily change its Server.
-    UseAnotherServer,
+    UseAnotherServer = 0x9C,
     /// 157[0x9D], The Server is moved and the Client should permanently change its server location.
-    ServerMoved,
+    ServerMoved = 0x9D,
     /// 158[0x9E], The Server does not support Shared Subscriptions.
-    SharedSubscriptionNotSupported,
+    SharedSubscriptionNotSupported = 0x9E,
     /// 159[0x9F], This connection is closed because the connection rate is too high.
-    ConnectionRateExceeded,
+    ConnectionRateExceeded = 0x9F,
     /// 160[0xA0], The maximum connection time authorized for this connection has been exceeded.
-    MaximumConnectTime,
+    MaximumConnectTime = 0xA0,
     /// 161[0xA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
-    SubscriptionIdentifiersNotSupported,
+    SubscriptionIdentifiersNotSupported = 0xA1,
     /// 162[0xA2], The Server does not support Wildcard subscription; the subscription is not accepted.
-    WildcardSubscriptionsNotSupported
+    WildcardSubscriptionsNotSupported = 0xA2
+}
+
+impl Default for DisconnectReasonCode {
+    fn default() -> Self {
+        DisconnectReasonCode::UnspecifiedError
+    }
 }
 
 

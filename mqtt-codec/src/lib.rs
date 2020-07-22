@@ -66,6 +66,7 @@ pub trait FromToU8<R> {
 pub trait Frame<R> {
     fn to_buf(&self, buf: &mut impl BufMut) -> usize;
     fn from_buf(buf: &mut BytesMut) -> Result<R, Error>;
+    fn length(&self) -> usize;
 }
 
 pub fn write_string(string: String, buf: &mut impl BufMut) -> usize {
@@ -155,7 +156,7 @@ pub fn read_variable_bytes(buf: &mut BytesMut) -> Result<(usize, usize), Error> 
 }
 
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Mqtt5Property {
     pub property_length: usize,
     pub properties: HashMap<u32, PropertyValue>,
@@ -542,37 +543,41 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
         assert_eq!(property.property_length, prop_len);
         Ok(property)
     }
+
+    fn length(&self) -> usize {
+        self.property_length
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PropertyType {
-    PayloadFormatIndicator,
-    MessageExpiryInterval,
-    ContentType,
-    ResponseTopic,
-    CorrelationData,
-    SubscriptionIdentifier,
-    SessionExpiryInterval,
-    AssignedClientIdentifier,
-    ServerKeepAlive,
-    AuthenticationMethod,
-    AuthenticationData,
-    RequestProblemInformation,
-    WillDelayInterval,
-    RequestResponseInformation,
-    ResponseInformation,
-    ServerReference,
-    ReasonString,
-    ReceiveMaximum,
-    TopicAliasMaximum,
-    TopicAlias,
-    MaximumQos,
-    RetainAvailable,
-    UserProperty,
-    MaximumPacketSize,
-    WildcardSubscriptionAvailable,
-    SubscriptionIdentifierAvailable,
-    SharedSubscriptionAvailable,
+    PayloadFormatIndicator = 0x01,
+    MessageExpiryInterval = 0x02,
+    ContentType = 0x03,
+    ResponseTopic = 0x08,
+    CorrelationData = 0x09,
+    SubscriptionIdentifier = 0x0B,
+    SessionExpiryInterval = 0x11,
+    AssignedClientIdentifier = 0x12,
+    ServerKeepAlive = 0x13,
+    AuthenticationMethod = 0x15,
+    AuthenticationData = 0x16,
+    RequestProblemInformation = 0x17,
+    WillDelayInterval = 0x18,
+    RequestResponseInformation = 0x19,
+    ResponseInformation = 0x1A,
+    ServerReference = 0x1C,
+    ReasonString = 0x1F,
+    ReceiveMaximum = 0x21,
+    TopicAliasMaximum = 0x22,
+    TopicAlias = 0x23,
+    MaximumQos = 0x24,
+    RetainAvailable = 0x25,
+    UserProperty = 0x26,
+    MaximumPacketSize = 0x27,
+    WildcardSubscriptionAvailable = 0x28,
+    SubscriptionIdentifierAvailable = 0x29,
+    SharedSubscriptionAvailable = 0x2A,
 }
 
 impl FromToU8<PropertyType> for PropertyType {
