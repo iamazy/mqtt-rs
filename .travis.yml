@@ -21,4 +21,4 @@ before_script:
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - cargo fmt --check
+  - cargo fmt
