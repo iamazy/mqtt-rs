@@ -4,9 +4,23 @@ use bytes::{BytesMut, BufMut};
 use crate::publish::Qos;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PingReq {
     pub fixed_header: FixedHeader,
+}
+
+impl Default for PingReq {
+    fn default() -> Self {
+        PingReq {
+            fixed_header: FixedHeader {
+                packet_type: PacketType::PINGREQ,
+                dup: false,
+                qos: Qos::AtMostOnce,
+                retain: false,
+                remaining_length: 0
+            }
+        }
+    }
 }
 
 impl PacketCodec<PingReq> for PingReq {
