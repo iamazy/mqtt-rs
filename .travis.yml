@@ -1,19 +1,24 @@
 language: rust
+
+before_cache:
+  - rm -rf "$TRAVIS_HOME/.cargo/registry/src"
+
+cache: cargo
+
 rust:
   - stable
+  - beta
   - nightly
+
+matrix:
+  allow_failures:
+    - rust: nightly
+
 before_script:
   - rustup component add rustfmt
   - rustup component add clippy
+
 script:
-  - RUSTFLAGS='-F warnings' cargo build --all
-  - cargo test
-  - cargo fmt -- --check
-stages:
-  - Check
-jobs:
-  include:
-    - stage: Check
-      name: Format
-      script:
-        - cargo fmt --all -- --check
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo fmt --check
