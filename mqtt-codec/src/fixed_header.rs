@@ -1,7 +1,7 @@
 use crate::packet::PacketType;
 use crate::publish::Qos;
-use crate::{Frame, Error, FromToU8, write_variable_bytes, read_variable_bytes};
-use bytes::{BufMut, BytesMut, Buf};
+use crate::{read_variable_bytes, write_variable_bytes, Error, Frame, FromToU8};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FixedHeader {
@@ -38,7 +38,8 @@ impl Frame<FixedHeader> for FixedHeader {
         let qos = Qos::from_u8((fixed_header_byte >> 1) & 0x03)?;
         let retain = fixed_header_byte & 0x01 == 1;
         let remaining_length = read_variable_bytes(buf)
-            .expect("Failed to parse Fixed Header Remaining Length").0;
+            .expect("Failed to parse Fixed Header Remaining Length")
+            .0;
         assert_eq!(remaining_length, buf.len());
         Ok(FixedHeader {
             packet_type,
@@ -50,6 +51,6 @@ impl Frame<FixedHeader> for FixedHeader {
     }
 
     fn length(&self) -> usize {
-        1 + write_variable_bytes(self.remaining_length,|_|{})
+        1 + write_variable_bytes(self.remaining_length, |_| {})
     }
 }

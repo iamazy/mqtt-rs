@@ -1,9 +1,11 @@
-use crate::{Error, FromToU8, Frame, Mqtt5Property, read_string, write_string, read_bytes, write_bytes};
+use crate::fixed_header::FixedHeader;
+use crate::packet::{PacketCodec, PacketType};
 use crate::protocol::Protocol;
 use crate::publish::Qos;
-use bytes::{BytesMut, BufMut, Buf, Bytes};
-use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketType, PacketCodec};
+use crate::{
+    read_bytes, read_string, write_bytes, write_string, Error, Frame, FromToU8, Mqtt5Property,
+};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
@@ -21,22 +23,22 @@ impl Default for Connect {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length() + payload.length(&variable_header.connect_flags)
+            remaining_length: variable_header.length()
+                + payload.length(&variable_header.connect_flags),
         };
         Connect {
             fixed_header,
             variable_header,
-            payload
+            payload,
         }
     }
 }
 
 impl PacketCodec<Connect> for Connect {
-
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Connect, Error> {
         // parse variable header
-        let variable_header = ConnectVariableHeader::from_buf(buf)
-            .expect("Failed to parse Connect Variable Header");
+        let variable_header =
+            ConnectVariableHeader::from_buf(buf).expect("Failed to parse Connect Variable Header");
         // parse connect payload
         let payload = ConnectPayload::from_buf(buf, &variable_header.connect_flags)
             .expect("Failed to parse Connect Payload");
@@ -52,7 +54,9 @@ impl Frame<Connect> for Connect {
     fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut len = self.fixed_header.to_buf(buf);
         len += self.variable_header.to_buf(buf);
-        len += self.payload.to_buf(buf, &self.variable_header.connect_flags.clone());
+        len += self
+            .payload
+            .to_buf(buf, &self.variable_header.connect_flags.clone());
         len
     }
 
@@ -60,9 +64,19 @@ impl Frame<Connect> for Connect {
         // parse fixed header
         let fixed_header = Connect::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::CONNECT);
-        assert_eq!(fixed_header.dup, false, "The dup of Connect Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Connect Fixed Header must be set to be AtMostOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of Connect Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of Connect Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtMostOnce,
+            "The qos of Connect Fixed Header must be set to be AtMostOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of Connect Fixed Header must be set to false"
+        );
         Connect::from_buf_extra(buf, fixed_header)
     }
 
@@ -80,15 +94,15 @@ pub struct ConnectVariableHeader {
 }
 
 impl ConnectVariableHeader {
-
     fn check_connect_property(connect_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in connect_property.properties.keys() {
             let key = *key;
             match key {
-                0x11 | 0x15 | 0x16 | 0x17 | 0x19 | 0x21 | 0x22 | 0x26 | 0x27 => {},
+                0x11 | 0x15 | 0x16 | 0x17 | 0x19 | 0x21 | 0x22 | 0x26 | 0x27 => {}
                 _ => {
-                    return Err(Error::InvalidPropertyType("Connect Properties contains a invalid property".to_string()))
+                    return Err(Error::InvalidPropertyType(
+                        "Connect Properties contains a invalid property".to_string(),
+                    ))
                 }
             }
         }
@@ -97,7 +111,6 @@ impl ConnectVariableHeader {
 }
 
 impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
-
     fn to_buf(&self, buf: &mut impl BufMut) -> usize {
         let mut len: usize = 0;
         len += self.protocol.to_buf(buf);
@@ -112,7 +125,8 @@ impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
         let protocol = Protocol::from_buf(buf).expect("Failed to parse Protocol");
         let connect_flags = ConnectFlags::from_buf(buf).expect("Failed to parse Connect Flag");
         let keep_alive = buf.get_u16();
-        let mut connect_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
+        let mut connect_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse Connect Properties");
         ConnectVariableHeader::check_connect_property(&mut connect_property)?;
         Ok(ConnectVariableHeader {
             protocol,
@@ -123,10 +137,7 @@ impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
     }
 
     fn length(&self) -> usize {
-        self.protocol.length()
-            + 2
-            + self.connect_flags.length()
-            + self.connect_property.length()
+        self.protocol.length() + 2 + self.connect_flags.length() + self.connect_property.length()
     }
 }
 
@@ -175,7 +186,8 @@ impl Frame<ConnectFlags> for ConnectFlags {
         // If a CONNECT packet is received with Clean Start set to 0 and there is no Session associated with the Client Identifier, the Server MUST create a new Session [MQTT-3.1.2-6].
         let clean_start = (connect_flags >> 1) & 0x01 > 0;
         let will_flag = (connect_flags >> 2) & 0x01 > 0;
-        let will_qos = Qos::from_u8((connect_flags >> 3) & 0x03).expect("Expected [Will Qos] value is 0(0x00), 1(0x01), 2(0x02)");
+        let will_qos = Qos::from_u8((connect_flags >> 3) & 0x03)
+            .expect("Expected [Will Qos] value is 0(0x00), 1(0x01), 2(0x02)");
         // If the Will Flag is set to 0, then the Will QoS MUST be set to 0 (0x00)
         // If the Will Flag is set to 1, the value of Will QoS can be 0 (0x00), 1 (0x01), or 2 (0x02), A value of 3 (0x03) is a Malformed Packet.
         if !will_flag && will_qos != Qos::AtMostOnce {
@@ -218,7 +230,6 @@ pub struct ConnectPayload {
 }
 
 impl ConnectPayload {
-
     fn new() -> ConnectPayload {
         ConnectPayload {
             client_id: String::default(),
@@ -231,13 +242,14 @@ impl ConnectPayload {
     }
 
     fn check_will_property(will_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in will_property.properties.keys() {
             let key = *key;
             match key {
-                0x01 | 0x02 | 0x03 | 0x08 | 0x09 | 0x18 | 0x26 => {},
+                0x01 | 0x02 | 0x03 | 0x08 | 0x09 | 0x18 | 0x26 => {}
                 _ => {
-                    return Err(Error::InvalidPropertyType("Will Properties contains a invalid property".to_string()))
+                    return Err(Error::InvalidPropertyType(
+                        "Will Properties contains a invalid property".to_string(),
+                    ))
                 }
             }
         }
@@ -245,22 +257,36 @@ impl ConnectPayload {
     }
 
     fn to_buf(&self, buf: &mut impl BufMut, connect_flags: &ConnectFlags) -> usize {
-        let mut len:usize = 0;
+        let mut len: usize = 0;
         len += write_string(self.client_id.clone(), buf);
         if connect_flags.will_flag {
             let will_property = self.will_property.clone();
-            len += will_property.expect("Failed to get Will Property from Connect Payload").to_buf(buf);
-            let will_topic = self.will_topic.as_ref().expect("Failed to get Will Topic from Connect Payload");
+            len += will_property
+                .expect("Failed to get Will Property from Connect Payload")
+                .to_buf(buf);
+            let will_topic = self
+                .will_topic
+                .as_ref()
+                .expect("Failed to get Will Topic from Connect Payload");
             len += write_string(will_topic.clone(), buf);
-            let will_payload = self.will_payload.as_ref().expect("Failed to get Will Payload from Connect Payload");
+            let will_payload = self
+                .will_payload
+                .as_ref()
+                .expect("Failed to get Will Payload from Connect Payload");
             len += write_bytes(will_payload.clone(), buf);
         }
         if connect_flags.username_flag {
-            let username = self.username.as_ref().expect("Failed to get Username from Connect Payload");
+            let username = self
+                .username
+                .as_ref()
+                .expect("Failed to get Username from Connect Payload");
             len += write_string(username.clone(), buf)
         }
         if connect_flags.password_flag {
-            let password = self.password.as_ref().expect("Failed to get Password from Connect Payload");
+            let password = self
+                .password
+                .as_ref()
+                .expect("Failed to get Password from Connect Payload");
             len += write_string(password.clone(), buf)
         }
         len
@@ -272,13 +298,16 @@ impl ConnectPayload {
         connect_payload.client_id = client_id;
 
         if connect_flags.will_flag {
-            let mut will_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Will Property");
+            let mut will_property =
+                Mqtt5Property::from_buf(buf).expect("Failed to parse Will Property");
             ConnectPayload::check_will_property(&mut will_property)?;
             connect_payload.will_property = Some(will_property);
 
-            let will_topic = read_string(buf).expect("Failed to parse Will Topic in Will Properties");
+            let will_topic =
+                read_string(buf).expect("Failed to parse Will Topic in Will Properties");
             connect_payload.will_topic = Some(will_topic);
-            let will_payload = read_bytes(buf).expect("Failed to parse Will Payload in Will Properties");
+            let will_payload =
+                read_bytes(buf).expect("Failed to parse Will Payload in Will Properties");
             connect_payload.will_payload = Some(will_payload);
         }
         if connect_flags.username_flag {
@@ -389,7 +418,7 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
             ConnectReasonCode::QoSNotSupported => 155,
             ConnectReasonCode::UseAnotherServer => 156,
             ConnectReasonCode::ServerMoved => 157,
-            ConnectReasonCode::ConnectionRateExceeded => 159
+            ConnectReasonCode::ConnectionRateExceeded => 159,
         }
     }
 
@@ -417,16 +446,16 @@ impl FromToU8<ConnectReasonCode> for ConnectReasonCode {
             156 => Ok(ConnectReasonCode::UseAnotherServer),
             157 => Ok(ConnectReasonCode::ServerMoved),
             159 => Ok(ConnectReasonCode::ConnectionRateExceeded),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::connect::{ConnectVariableHeader, Connect};
-    use crate::{Frame, ConnectPayload, ConnectFlags};
+    use crate::connect::{Connect, ConnectVariableHeader};
+    use crate::{ConnectFlags, ConnectPayload, Frame};
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_variable_header_example() {
@@ -454,7 +483,7 @@ mod test {
 
     #[test]
     fn test_take() {
-        use bytes::{BufMut, buf::BufExt};
+        use bytes::{buf::BufExt, BufMut};
 
         let mut buf = b"hello world"[..].take(5);
         let mut dst = vec![];
@@ -471,23 +500,64 @@ mod test {
     #[test]
     fn test_connect() {
         let connect_bytes = &[
-            0b0001_0000u8, 52,  // fixed header
-            0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8, // protocol name
-            0x05, // protocol version
+            0b0001_0000u8,
+            52, // fixed header
+            0x00,
+            0x04,
+            'M' as u8,
+            'Q' as u8,
+            'T' as u8,
+            'T' as u8,     // protocol name
+            0x05,          // protocol version
             0b1100_1110u8, // connect flag
-            0x00, 0x10, // keep alive
-            0x05, 0x11, 0x00, 0x00, 0x00, 0x10, // connect properties
-            0x00, 0x03, 'c' as u8, 'i' as u8, 'd' as u8, // client id
-            0x05, 0x02, 0x00, 0x00, 0x00, 0x10, // will properties
-            0x00, 0x04, 'w' as u8, 'i' as u8, 'l' as u8, 'l' as u8, // will topic
-            0x00, 0x01, 'p' as u8, // will payload
-            0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // username
-            0x00, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06
+            0x00,
+            0x10, // keep alive
+            0x05,
+            0x11,
+            0x00,
+            0x00,
+            0x00,
+            0x10, // connect properties
+            0x00,
+            0x03,
+            'c' as u8,
+            'i' as u8,
+            'd' as u8, // client id
+            0x05,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+            0x10, // will properties
+            0x00,
+            0x04,
+            'w' as u8,
+            'i' as u8,
+            'l' as u8,
+            'l' as u8, // will topic
+            0x00,
+            0x01,
+            'p' as u8, // will payload
+            0x00,
+            0x06,
+            'i' as u8,
+            'a' as u8,
+            'm' as u8,
+            'a' as u8,
+            'z' as u8,
+            'y' as u8, // username
+            0x00,
+            0x06,
+            0x01,
+            0x02,
+            0x03,
+            0x04,
+            0x05,
+            0x06,
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(connect_bytes);
-        let connect = Connect::from_buf(&mut buf)
-            .expect("Failed to parse Connect Packet");
+        let connect = Connect::from_buf(&mut buf).expect("Failed to parse Connect Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         connect.to_buf(&mut buf);

@@ -1,7 +1,9 @@
-use crate::{FromToU8, Error, Mqtt5Property, Frame, write_string, read_string, write_variable_bytes};
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, PacketCodec};
-use bytes::{Bytes, BytesMut, BufMut, Buf};
+use crate::packet::{PacketCodec, PacketId, PacketType};
+use crate::{
+    read_string, write_string, write_variable_bytes, Error, Frame, FromToU8, Mqtt5Property,
+};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
@@ -19,20 +21,20 @@ impl Default for Publish {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length() + payload.len()
+            remaining_length: variable_header.length() + payload.len(),
         };
         Publish {
             fixed_header,
             variable_header,
-            payload
+            payload,
         }
     }
 }
 
 impl PacketCodec<Publish> for Publish {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Publish, Error> {
-        let variable_header = PublishVariableHeader::from_buf(buf)
-            .expect("Failed to parse Publish Variable Header");
+        let variable_header =
+            PublishVariableHeader::from_buf(buf).expect("Failed to parse Publish Variable Header");
         let payload_len = fixed_header.remaining_length
             - variable_header.topic_name.as_bytes().len()
             - 4
@@ -79,14 +81,16 @@ pub struct PublishVariableHeader {
 }
 
 impl PublishVariableHeader {
-
     fn check_publish_property(publish_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in publish_property.properties.keys() {
             let key = *key;
             match key {
-                0x01 | 0x02 | 0x03 | 0x08 | 0x09 | 0x0B | 0x23 | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("Publish Properties contains a invalid property".to_string()))
+                0x01 | 0x02 | 0x03 | 0x08 | 0x09 | 0x0B | 0x23 | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "Publish Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
@@ -104,7 +108,8 @@ impl Frame<PublishVariableHeader> for PublishVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<PublishVariableHeader, Error> {
         let topic_name = read_string(buf).expect("Failed to parse Topic Name");
         let packet_id = PacketId::new(buf.get_u16());
-        let mut publish_property = Mqtt5Property::from_buf(buf).expect("Failed to parse Publish Properties");
+        let mut publish_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse Publish Properties");
         PublishVariableHeader::check_publish_property(&mut publish_property)?;
         Ok(PublishVariableHeader {
             topic_name,
@@ -127,7 +132,7 @@ pub enum Qos {
     /// Qos value: 2
     ExactlyOnce = 2,
     /// Reserved, must not be used
-    Reserved = 3
+    Reserved = 3,
 }
 
 impl Default for Qos {
@@ -142,7 +147,7 @@ impl FromToU8<Qos> for Qos {
             Qos::AtMostOnce => 0,
             Qos::AtLeastOnce => 1,
             Qos::ExactlyOnce => 2,
-            _ => 3
+            _ => 3,
         }
     }
 
@@ -158,24 +163,33 @@ impl FromToU8<Qos> for Qos {
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::Frame;
     use crate::publish::Publish;
+    use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_publish() {
         let publish_bytes = &[
-            0b0011_1101u8, 14,  // fixed header,
-            0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // topic name
-            0x00, 0x10, // packet identifier
+            0b0011_1101u8,
+            14, // fixed header,
+            0x00,
+            0x03,
+            'c' as u8,
+            'a' as u8,
+            't' as u8, // topic name
+            0x00,
+            0x10, // packet identifier
             6,
             0x08,
-            0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // reponse topic
+            0x00,
+            0x03,
+            'c' as u8,
+            'a' as u8,
+            't' as u8, // reponse topic
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(publish_bytes);
-        let publish = Publish::from_buf(&mut buf)
-            .expect("Failed to parse Publish Packet");
+        let publish = Publish::from_buf(&mut buf).expect("Failed to parse Publish Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         publish.to_buf(&mut buf);

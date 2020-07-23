@@ -1,8 +1,8 @@
-use tokio::net::TcpListener;
-use std::panic;
-use mqtt_broker::{broker, Config};
 use clap::{app_from_crate, crate_authors, crate_description, crate_name, crate_version};
-use tracing::{info, error, Level};
+use mqtt_broker::{broker, Config};
+use std::panic;
+use tokio::net::TcpListener;
+use tracing::{error, info, Level};
 
 #[tokio::main]
 pub async fn main() -> mqtt_core::Result<()> {
@@ -13,16 +13,16 @@ pub async fn main() -> mqtt_core::Result<()> {
                 .long("config")
                 .help("Configuration file path")
                 .takes_value(true)
-                .default_value("mqtt-broker/conf/mqtt.yml")
-        ).get_matches();
+                .default_value("mqtt-broker/conf/mqtt.yml"),
+        )
+        .get_matches();
 
     let cfg = Config::new(opts.value_of("config").unwrap())?;
     let subscriber = tracing_subscriber::fmt()
         .with_max_level(Level::TRACE)
         .finish();
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("no global subscriber has been set");
-    let listener = TcpListener::bind(&format!("{}:{}",cfg.host, cfg.port)).await?;
+    tracing::subscriber::set_global_default(subscriber).expect("no global subscriber has been set");
+    let listener = TcpListener::bind(&format!("{}:{}", cfg.host, cfg.port)).await?;
     panic::set_hook(Box::new(|panic_info| {
         error!("{:?}", panic_info);
     }));

@@ -1,13 +1,13 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{FromToU8, Error, Mqtt5Property, Frame};
-use bytes::{BytesMut, BufMut, Buf};
+use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
+use crate::{Error, Frame, FromToU8, Mqtt5Property};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRec {
     fixed_header: FixedHeader,
-    variable_header: PubRecVariableHeader
+    variable_header: PubRecVariableHeader,
 }
 
 impl Default for PubRec {
@@ -18,22 +18,22 @@ impl Default for PubRec {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length()
+            remaining_length: variable_header.length(),
         };
         PubRec {
             fixed_header,
-            variable_header
+            variable_header,
         }
     }
 }
 
 impl PacketCodec<PubRec> for PubRec {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubRec, Error> {
-        let variable_header = PubRecVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubRec Variable Header");
+        let variable_header =
+            PubRecVariableHeader::from_buf(buf).expect("Failed to parse PubRec Variable Header");
         Ok(PubRec {
             fixed_header,
-            variable_header
+            variable_header,
         })
     }
 }
@@ -46,11 +46,21 @@ impl Frame<PubRec> for PubRec {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRec, Error> {
-        let fixed_header =PubRec::decode_fixed_header(buf);
+        let fixed_header = PubRec::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBREC);
-        assert_eq!(fixed_header.dup, false, "The dup of PubRec Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubRec Fixed Header must be set to be AtMostOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of PubRec Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of PubRec Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtMostOnce,
+            "The qos of PubRec Fixed Header must be set to be AtMostOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of PubRec Fixed Header must be set to false"
+        );
         PubRec::from_buf_extra(buf, fixed_header)
     }
 
@@ -67,19 +77,20 @@ pub struct PubRecVariableHeader {
 }
 
 impl PubRecVariableHeader {
-
     fn check_pubrec_property(pubrec_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in pubrec_property.properties.keys() {
             let key = *key;
             match key {
-                0x1F | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("PubRec Properties contains a invalid property".to_string()))
+                0x1F | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "PubRec Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
     }
-
 }
 
 impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
@@ -93,24 +104,22 @@ impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRecVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let pubrec_reason_code = PubRecReasonCode::from_u8(buf.get_u8())
-            .expect("Failed to parse PubRec Reason Code");
-        let mut pubrec_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse PubRec Properties");
+        let pubrec_reason_code =
+            PubRecReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubRec Reason Code");
+        let mut pubrec_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse PubRec Properties");
         PubRecVariableHeader::check_pubrec_property(&mut pubrec_property)?;
         Ok(PubRecVariableHeader {
             packet_id,
             pubrec_reason_code,
-            pubrec_property
+            pubrec_property,
         })
-
     }
 
     fn length(&self) -> usize {
         self.packet_id.length() + self.pubrec_property.length() + 1
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRecReasonCode {
@@ -154,7 +163,7 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
             PubRecReasonCode::TopicNameInvalid => 144,
             PubRecReasonCode::PacketIdentifierInUse => 145,
             PubRecReasonCode::QuotaExceeded => 151,
-            PubRecReasonCode::PayloadFormatInvalid => 153
+            PubRecReasonCode::PayloadFormatInvalid => 153,
         }
     }
 
@@ -169,31 +178,35 @@ impl FromToU8<PubRecReasonCode> for PubRecReasonCode {
             145 => Ok(PubRecReasonCode::PacketIdentifierInUse),
             151 => Ok(PubRecReasonCode::QuotaExceeded),
             153 => Ok(PubRecReasonCode::PayloadFormatInvalid),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::Frame;
     use crate::pubrec::PubRec;
+    use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_pubrec() {
         let pubrec_bytes = &[
-            0b0101_0000u8, 9,  // fixed header
-            0x00, 0x10, // packet identifier
+            0b0101_0000u8,
+            9, // fixed header
+            0x00,
+            0x10, // packet identifier
             0x00, // pubrec reason code
-            5, // properties length
+            5,    // properties length
             0x1F, // property id
-            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00,
+            0x02,
+            'I' as u8,
+            'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(pubrec_bytes);
-        let pubrec = PubRec::from_buf(&mut buf)
-            .expect("Failed to parse PubRec Packet");
+        let pubrec = PubRec::from_buf(&mut buf).expect("Failed to parse PubRec Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         pubrec.to_buf(&mut buf);

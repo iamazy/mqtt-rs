@@ -7,11 +7,10 @@ pub struct Shutdown {
 }
 
 impl Shutdown {
-
     pub fn new(notify: broadcast::Receiver<()>) -> Shutdown {
         Shutdown {
             shutdown: false,
-            notify
+            notify,
         }
     }
 

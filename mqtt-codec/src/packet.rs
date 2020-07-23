@@ -1,28 +1,27 @@
-use std::num::NonZeroU16;
-use bytes::{BufMut, BytesMut, Buf};
-use crate::{Error, FromToU8, Frame};
-use crate::fixed_header::FixedHeader;
-use crate::connect::Connect;
+use crate::auth::Auth;
 use crate::connack::ConnAck;
-use crate::publish::Publish;
-use crate::puback::PubAck;
-use crate::pubrec::PubRec;
-use crate::pubrel::PubRel;
-use crate::pubcomp::PubComp;
-use crate::subscribe::Subscribe;
-use crate::suback::SubAck;
-use crate::unsubscribe::UnSubscribe;
-use crate::unsuback::UnSubAck;
+use crate::connect::Connect;
+use crate::disconnect::Disconnect;
+use crate::fixed_header::FixedHeader;
 use crate::pingreq::PingReq;
 use crate::pingresp::PingResp;
-use crate::disconnect::Disconnect;
-use crate::auth::Auth;
+use crate::puback::PubAck;
+use crate::pubcomp::PubComp;
+use crate::publish::Publish;
+use crate::pubrec::PubRec;
+use crate::pubrel::PubRel;
+use crate::suback::SubAck;
+use crate::subscribe::Subscribe;
+use crate::unsuback::UnSubAck;
+use crate::unsubscribe::UnSubscribe;
+use crate::{Error, Frame, FromToU8};
+use bytes::{Buf, BufMut, BytesMut};
+use std::num::NonZeroU16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PacketId(NonZeroU16);
 
 impl PacketId {
-
     pub fn new(value: u16) -> Self {
         PacketId(NonZeroU16::new(value).unwrap())
     }
@@ -78,7 +77,7 @@ pub enum PacketType {
     /// 14, Two-way, Disconnect notification
     DISCONNECT = 14,
     /// 15, Two-way, Authentication exchange
-    AUTH = 15
+    AUTH = 15,
 }
 
 impl Default for PacketType {
@@ -88,7 +87,6 @@ impl Default for PacketType {
 }
 
 impl FromToU8<PacketType> for PacketType {
-
     fn to_u8(&self) -> u8 {
         match *self {
             PacketType::CONNECT => 1,
@@ -126,7 +124,7 @@ impl FromToU8<PacketType> for PacketType {
             13 => Ok(PacketType::PINGRESP),
             14 => Ok(PacketType::DISCONNECT),
             15 => Ok(PacketType::AUTH),
-            n => Err(Error::InvalidPacketType(n))
+            n => Err(Error::InvalidPacketType(n)),
         }
     }
 }
@@ -151,14 +149,12 @@ pub enum Packet {
 }
 
 impl Packet {
-
     pub fn parse(buf: &mut BytesMut) -> Result<Packet, Error> {
         if buf.remaining() <= 1 {
             return Err(Error::Incomplete);
         }
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Fixed Header");
-        let packet =  match fixed_header.packet_type {
+        let fixed_header = FixedHeader::from_buf(buf).expect("Failed to parse Fixed Header");
+        let packet = match fixed_header.packet_type {
             PacketType::CONNECT => {
                 let connect = Connect::from_buf_extra(buf, fixed_header)
                     .expect("Failed to parse Connect Packet");
@@ -230,15 +226,14 @@ impl Packet {
                 Packet::Disconnect(disconnect)
             }
             PacketType::AUTH => {
-                let auth = Auth::from_buf_extra(buf, fixed_header)
-                    .expect("Failed to parse Auth Packet");
+                let auth =
+                    Auth::from_buf_extra(buf, fixed_header).expect("Failed to parse Auth Packet");
                 Packet::Auth(auth)
             }
         };
         Ok(packet)
     }
 }
-
 
 pub trait PacketCodec<R> {
     fn decode_fixed_header(buf: &mut BytesMut) -> FixedHeader {

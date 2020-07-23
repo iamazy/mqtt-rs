@@ -1,8 +1,10 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string, write_variable_bytes};
+use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
-use bytes::{BytesMut, BufMut, Buf};
+use crate::{
+    read_string, write_string, write_variable_bytes, Error, Frame, FromToU8, Mqtt5Property,
+};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
@@ -21,12 +23,12 @@ impl Default for Subscribe {
             dup: false,
             qos: Qos::AtLeastOnce,
             retain: false,
-            remaining_length: variable_header.length() + payload.len()
+            remaining_length: variable_header.length() + payload.len(),
         };
         Subscribe {
             fixed_header,
             variable_header,
-            payload
+            payload,
         }
     }
 }
@@ -35,14 +37,15 @@ impl PacketCodec<Subscribe> for Subscribe {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Subscribe, Error> {
         let variable_header = SubscribeVariableHeader::from_buf(buf)
             .expect("Failed to parse Subscribe Variable Header");
-        let mut remaining = fixed_header.remaining_length - 2
+        let mut remaining = fixed_header.remaining_length
+            - 2
             - variable_header.subscribe_property.property_length
             - write_variable_bytes(variable_header.subscribe_property.property_length, |_| {});
         let mut payload = Vec::<(String, SubscriptionOptions)>::new();
         while remaining > 0 {
             let topic_filter = read_string(buf).expect("Failed to parse Topic Filter");
-            let subscription_options = SubscriptionOptions::from_buf(buf)
-                .expect("Failed to parse Subscription Options");
+            let subscription_options =
+                SubscriptionOptions::from_buf(buf).expect("Failed to parse Subscription Options");
             payload.push((topic_filter.clone(), subscription_options));
             remaining = remaining - topic_filter.len() - 3;
         }
@@ -68,9 +71,19 @@ impl Frame<Subscribe> for Subscribe {
     fn from_buf(buf: &mut BytesMut) -> Result<Subscribe, Error> {
         let fixed_header = Subscribe::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::SUBSCRIBE);
-        assert_eq!(fixed_header.dup, false, "The dup of Subscribe Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of Subscribe Fixed Header must be set to be AtLeastOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of Subscribe Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of Subscribe Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtLeastOnce,
+            "The qos of Subscribe Fixed Header must be set to be AtLeastOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of Subscribe Fixed Header must be set to false"
+        );
         Subscribe::from_buf_extra(buf, fixed_header)
     }
 
@@ -92,7 +105,9 @@ impl SubscribeVariableHeader {
             match key {
                 0x0B | 0x26 => {}
                 _ => {
-                    return Err(Error::InvalidPropertyType("Subscribe Properties contains a invalid property".to_string()));
+                    return Err(Error::InvalidPropertyType(
+                        "Subscribe Properties contains a invalid property".to_string(),
+                    ));
                 }
             }
         }
@@ -109,8 +124,8 @@ impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubscribeVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let mut subscribe_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse Subscribe Properties");
+        let mut subscribe_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse Subscribe Properties");
         SubscribeVariableHeader::check_subscribe_property(&mut subscribe_property)?;
         Ok(SubscribeVariableHeader {
             packet_id,
@@ -148,8 +163,8 @@ impl Frame<SubscriptionOptions> for SubscriptionOptions {
 
     fn from_buf(buf: &mut BytesMut) -> Result<SubscriptionOptions, Error> {
         let subscription_options = buf.get_u8();
-        let maximum_qos = Qos::from_u8(subscription_options & 0b0000_0011)
-            .expect("Failed to parse Maximum Qos");
+        let maximum_qos =
+            Qos::from_u8(subscription_options & 0b0000_0011).expect("Failed to parse Maximum Qos");
         let no_local = (subscription_options >> 2) & 0x01 == 1;
         let retain_as_published = (subscription_options >> 3) & 0x01 == 1;
         let retain_handling = (subscription_options >> 4) & 0x03;
@@ -235,34 +250,43 @@ impl FromToU8<SubscribeReasonCode> for SubscribeReasonCode {
             158 => Ok(SubscribeReasonCode::SharedSubscriptionNotSupported),
             161 => Ok(SubscribeReasonCode::SubscriptionIdentifierNotSupported),
             162 => Ok(SubscribeReasonCode::WildcardSubscriptionNotSupported),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::{Frame};
     use crate::subscribe::Subscribe;
+    use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_subscribe() {
         let subscribe_bytes = &[
-            0b1000_0010u8, 17,  // fixed header
-            0x00, 0x10, // packet identifier
-            2, // properties length
+            0b1000_0010u8,
+            17, // fixed header
+            0x00,
+            0x10, // packet identifier
+            2,    // properties length
             0x0B, // property id
             0x02, // subscription identifier
-            0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, // topic filter
-            0x01, // subscription options
-            0x00, 0x03, 'c' as u8, '/' as u8, 'd' as u8, // topic filter
-            0x02, // subscription options
+            0x00,
+            0x03,
+            'a' as u8,
+            '/' as u8,
+            'b' as u8, // topic filter
+            0x01,      // subscription options
+            0x00,
+            0x03,
+            'c' as u8,
+            '/' as u8,
+            'd' as u8, // topic filter
+            0x02,      // subscription options
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(subscribe_bytes);
-        let subscribe = Subscribe::from_buf(&mut buf)
-            .expect("Failed to parse Subscribe Packet");
+        let subscribe = Subscribe::from_buf(&mut buf).expect("Failed to parse Subscribe Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         subscribe.to_buf(&mut buf);

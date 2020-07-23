@@ -1,21 +1,20 @@
-use tokio::io::{BufWriter, AsyncWriteExt, AsyncReadExt};
-use tokio::net::TcpStream;
 use bytes::BytesMut;
 use mqtt_codec::{Error, Frame, Packet};
 use std::io;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
+use tokio::net::TcpStream;
 
 #[derive(Debug)]
 pub struct Connection {
     stream: BufWriter<TcpStream>,
-    buffer: BytesMut
+    buffer: BytesMut,
 }
 
 impl Connection {
-
     pub fn new(socket: TcpStream) -> Connection {
         Connection {
             stream: BufWriter::new(socket),
-            buffer: BytesMut::with_capacity(4 * 1024)
+            buffer: BytesMut::with_capacity(4 * 1024),
         }
     }
 
@@ -23,8 +22,8 @@ impl Connection {
         loop {
             match Packet::parse(&mut self.buffer) {
                 Ok(packet) => return Ok(Some(packet)),
-                Err(Error::Incomplete) => {},
-                Err(e) => return Err(e.into())
+                Err(Error::Incomplete) => {}
+                Err(e) => return Err(e.into()),
             }
 
             if 0 == self.stream.read_buf(&mut self.buffer).await? {
@@ -32,7 +31,7 @@ impl Connection {
                     Ok(None)
                 } else {
                     Err("connection reset by peer".into())
-                }
+                };
             }
         }
     }

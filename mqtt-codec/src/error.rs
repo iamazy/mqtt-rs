@@ -2,7 +2,6 @@ use core::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-
     MalformedVariableByteInteger,
 
     MalformedFixedHeader,
@@ -25,8 +24,7 @@ pub enum Error {
 
     Incomplete,
 
-    Other(String)
-
+    Other(String),
 }
 
 impl From<String> for Error {
@@ -57,7 +55,7 @@ impl fmt::Display for Error {
             Error::InvalidPacketType(_) => "Invalid packet type".fmt(fmt),
             Error::MalformedPacket => "Malformed packet".fmt(fmt),
             Error::Incomplete => "Incomplete Packet".fmt(fmt),
-            Error::Other(str) => str.fmt(fmt)
+            Error::Other(str) => str.fmt(fmt),
         }
     }
 }

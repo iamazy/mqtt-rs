@@ -1,8 +1,8 @@
 use crate::fixed_header::FixedHeader;
-use crate::{Mqtt5Property, FromToU8, Error, Frame};
-use bytes::{BytesMut, BufMut, Buf};
-use crate::packet::{PacketId, PacketType, PacketCodec};
+use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
+use crate::{Error, Frame, FromToU8, Mqtt5Property};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubAck {
@@ -18,22 +18,22 @@ impl Default for PubAck {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length()
+            remaining_length: variable_header.length(),
         };
         PubAck {
             fixed_header,
-            variable_header
+            variable_header,
         }
     }
 }
 
 impl PacketCodec<PubAck> for PubAck {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubAck, Error> {
-        let variable_header = PubAckVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubAck Variable Header");
+        let variable_header =
+            PubAckVariableHeader::from_buf(buf).expect("Failed to parse PubAck Variable Header");
         Ok(PubAck {
             fixed_header,
-            variable_header
+            variable_header,
         })
     }
 }
@@ -48,9 +48,19 @@ impl Frame<PubAck> for PubAck {
     fn from_buf(buf: &mut BytesMut) -> Result<PubAck, Error> {
         let fixed_header = PubAck::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBACK);
-        assert_eq!(fixed_header.dup, false, "The dup of PubAck Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of PubAck Fixed Header must be set to be AtMostOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of PubAck Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of PubAck Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtMostOnce,
+            "The qos of PubAck Fixed Header must be set to be AtMostOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of PubAck Fixed Header must be set to false"
+        );
         PubAck::from_buf_extra(buf, fixed_header)
     }
 
@@ -59,28 +69,28 @@ impl Frame<PubAck> for PubAck {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubAckVariableHeader {
     packet_id: PacketId,
     puback_reason_code: PubAckReasonCode,
-    puback_property: Mqtt5Property
+    puback_property: Mqtt5Property,
 }
 
 impl PubAckVariableHeader {
-
     fn check_puback_property(puback_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in puback_property.properties.keys() {
             let key = *key;
             match key {
-                0x1F | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("PubAck Properties contains a invalid property".to_string()))
+                0x1F | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "PubAck Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
     }
-
 }
 
 impl Frame<PubAckVariableHeader> for PubAckVariableHeader {
@@ -94,13 +104,15 @@ impl Frame<PubAckVariableHeader> for PubAckVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubAckVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let puback_reason_code = PubAckReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubAck Reason Code");
-        let mut puback_property = Mqtt5Property::from_buf(buf).expect("Failed to parse PubAck Property");
+        let puback_reason_code =
+            PubAckReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubAck Reason Code");
+        let mut puback_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse PubAck Property");
         PubAckVariableHeader::check_puback_property(&mut puback_property)?;
         Ok(PubAckVariableHeader {
             packet_id,
             puback_reason_code,
-            puback_property
+            puback_property,
         })
     }
 
@@ -140,7 +152,6 @@ impl Default for PubAckReasonCode {
     }
 }
 
-
 impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
     fn to_u8(&self) -> u8 {
         match *self {
@@ -167,7 +178,7 @@ impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
             145 => Ok(PubAckReasonCode::PacketIdentifierInUse),
             151 => Ok(PubAckReasonCode::QuotaExceeded),
             153 => Ok(PubAckReasonCode::PayloadFormatInvalid),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
@@ -175,23 +186,27 @@ impl FromToU8<PubAckReasonCode> for PubAckReasonCode {
 #[cfg(test)]
 mod test {
     use crate::puback::PubAck;
-    use bytes::{BytesMut, BufMut};
     use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_puback() {
         let puback_bytes = &[
-            0b0100_0000u8, 9,  // fixed header
-            0x00, 0x10, // packet identifier
+            0b0100_0000u8,
+            9, // fixed header
+            0x00,
+            0x10, // packet identifier
             0x00, // puback reason code
-            5, // properties length
+            5,    // properties length
             0x1F, // property id
-            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00,
+            0x02,
+            'I' as u8,
+            'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(puback_bytes);
-        let puback = PubAck::from_buf(&mut buf)
-            .expect("Failed to parse PubAck Packet");
+        let puback = PubAck::from_buf(&mut buf).expect("Failed to parse PubAck Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         puback.to_buf(&mut buf);

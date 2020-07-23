@@ -1,13 +1,13 @@
 use crate::fixed_header::FixedHeader;
-use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{FromToU8, Error, Mqtt5Property, Frame};
-use bytes::{BytesMut, BufMut, Buf};
+use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
+use crate::{Error, Frame, FromToU8, Mqtt5Property};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRel {
     fixed_header: FixedHeader,
-    variable_header: PubRelVariableHeader
+    variable_header: PubRelVariableHeader,
 }
 
 impl Default for PubRel {
@@ -18,22 +18,22 @@ impl Default for PubRel {
             dup: false,
             qos: Qos::AtLeastOnce,
             retain: false,
-            remaining_length: variable_header.length()
+            remaining_length: variable_header.length(),
         };
         PubRel {
             fixed_header,
-            variable_header
+            variable_header,
         }
     }
 }
 
 impl PacketCodec<PubRel> for PubRel {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<PubRel, Error> {
-        let variable_header = PubRelVariableHeader::from_buf(buf)
-            .expect("Failed to parse PubRel Variable Header");
+        let variable_header =
+            PubRelVariableHeader::from_buf(buf).expect("Failed to parse PubRel Variable Header");
         Ok(PubRel {
             fixed_header,
-            variable_header
+            variable_header,
         })
     }
 }
@@ -48,9 +48,19 @@ impl Frame<PubRel> for PubRel {
     fn from_buf(buf: &mut BytesMut) -> Result<PubRel, Error> {
         let fixed_header = PubRel::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::PUBREL);
-        assert_eq!(fixed_header.dup, false, "The dup of PubRel Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtLeastOnce, "The qos of PubRel Fixed Header must be set to be AtLeastOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of PubRel Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of PubRel Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtLeastOnce,
+            "The qos of PubRel Fixed Header must be set to be AtLeastOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of PubRel Fixed Header must be set to false"
+        );
         PubRel::from_buf_extra(buf, fixed_header)
     }
 
@@ -67,14 +77,16 @@ pub struct PubRelVariableHeader {
 }
 
 impl PubRelVariableHeader {
-
     fn check_pubrel_property(pubrel_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in pubrel_property.properties.keys() {
             let key = *key;
             match key {
-                0x1F | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("PubRel Properties contains a invalid property".to_string()))
+                0x1F | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "PubRel Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
@@ -92,24 +104,22 @@ impl Frame<PubRelVariableHeader> for PubRelVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<PubRelVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let pubrel_reason_code = PubRelReasonCode::from_u8(buf.get_u8())
-            .expect("Failed to parse PubRel Reason Code");
-        let mut pubrel_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse PubRel Properties");
+        let pubrel_reason_code =
+            PubRelReasonCode::from_u8(buf.get_u8()).expect("Failed to parse PubRel Reason Code");
+        let mut pubrel_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse PubRel Properties");
         PubRelVariableHeader::check_pubrel_property(&mut pubrel_property)?;
         Ok(PubRelVariableHeader {
             packet_id,
             pubrel_reason_code,
-            pubrel_property
+            pubrel_property,
         })
-
     }
 
     fn length(&self) -> usize {
         self.packet_id.length() + self.pubrel_property.length() + 1
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRelReasonCode {
@@ -138,32 +148,35 @@ impl FromToU8<PubRelReasonCode> for PubRelReasonCode {
         match byte {
             0 => Ok(PubRelReasonCode::Success),
             146 => Ok(PubRelReasonCode::PacketIdentifierNotFound),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::Frame;
     use crate::pubrel::PubRel;
+    use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_pubrec() {
         let pubrel_bytes = &[
-            0b0110_0010u8, 9,  // fixed header
-            0x00, 0x10, // packet identifier
+            0b0110_0010u8,
+            9, // fixed header
+            0x00,
+            0x10, // packet identifier
             0x00, // pubrec reason code
-            5, // properties length
+            5,    // properties length
             0x1F, // property id
-            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00,
+            0x02,
+            'I' as u8,
+            'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(pubrel_bytes);
-        let pubrel = PubRel::from_buf(&mut buf)
-            .expect("Failed to parse PubRel Packet");
+        let pubrel = PubRel::from_buf(&mut buf).expect("Failed to parse PubRel Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         pubrel.to_buf(&mut buf);

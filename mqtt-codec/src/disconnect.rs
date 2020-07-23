@@ -1,13 +1,13 @@
 use crate::fixed_header::FixedHeader;
-use crate::{Mqtt5Property, FromToU8, Error, Frame};
-use bytes::{BytesMut, BufMut, Buf};
+use crate::packet::{PacketCodec, PacketType};
 use crate::publish::Qos;
-use crate::packet::{PacketType, PacketCodec};
+use crate::{Error, Frame, FromToU8, Mqtt5Property};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disconnect {
     fixed_header: FixedHeader,
-    variable_header: DisconnectVariableHeader
+    variable_header: DisconnectVariableHeader,
 }
 
 impl Default for Disconnect {
@@ -18,7 +18,7 @@ impl Default for Disconnect {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length()
+            remaining_length: variable_header.length(),
         };
         Disconnect {
             fixed_header,
@@ -33,7 +33,7 @@ impl PacketCodec<Disconnect> for Disconnect {
             .expect("Failed to parse Disconnect Variable Header");
         Ok(Disconnect {
             fixed_header,
-            variable_header
+            variable_header,
         })
     }
 }
@@ -46,12 +46,22 @@ impl Frame<Disconnect> for Disconnect {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Disconnect, Error> {
-        let fixed_header = FixedHeader::from_buf(buf)
-            .expect("Failed to parse Disconnect Fixed Header");
+        let fixed_header =
+            FixedHeader::from_buf(buf).expect("Failed to parse Disconnect Fixed Header");
         assert_eq!(fixed_header.packet_type, PacketType::DISCONNECT);
-        assert_eq!(fixed_header.dup, false, "The dup of Disconnect Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of Disconnect Fixed Header must be set to be AtMostOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of Disconnect Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of Disconnect Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtMostOnce,
+            "The qos of Disconnect Fixed Header must be set to be AtMostOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of Disconnect Fixed Header must be set to false"
+        );
         Disconnect::from_buf_extra(buf, fixed_header)
     }
 
@@ -63,18 +73,20 @@ impl Frame<Disconnect> for Disconnect {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DisconnectVariableHeader {
     reason_code: DisconnectReasonCode,
-    disconnect_property: Mqtt5Property
+    disconnect_property: Mqtt5Property,
 }
 
 impl DisconnectVariableHeader {
-
     fn check_disconnect_property(disconnect_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in disconnect_property.properties.keys() {
             let key = *key;
             match key {
-                0x11 | 0x1C | 0x1F | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("Disconnect Properties contains a invalid property".to_string()))
+                0x11 | 0x1C | 0x1F | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "Disconnect Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
@@ -92,12 +104,12 @@ impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
     fn from_buf(buf: &mut BytesMut) -> Result<DisconnectVariableHeader, Error> {
         let reason_code = DisconnectReasonCode::from_u8(buf.get_u8())
             .expect("Failed to parse Disconnect Reason Code");
-        let mut disconnect_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse Disconnect Properties");
+        let mut disconnect_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse Disconnect Properties");
         DisconnectVariableHeader::check_disconnect_property(&mut disconnect_property)?;
         Ok(DisconnectVariableHeader {
             reason_code,
-            disconnect_property
+            disconnect_property,
         })
     }
 
@@ -105,7 +117,6 @@ impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
         1 + self.disconnect_property.length()
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DisconnectReasonCode {
@@ -166,7 +177,7 @@ pub enum DisconnectReasonCode {
     /// 161[0xA1], The Server does not support Subscription Identifiers; the subscription is not accepted.
     SubscriptionIdentifiersNotSupported = 0xA1,
     /// 162[0xA2], The Server does not support Wildcard subscription; the subscription is not accepted.
-    WildcardSubscriptionsNotSupported = 0xA2
+    WildcardSubscriptionsNotSupported = 0xA2,
 }
 
 impl Default for DisconnectReasonCode {
@@ -174,7 +185,6 @@ impl Default for DisconnectReasonCode {
         DisconnectReasonCode::UnspecifiedError
     }
 }
-
 
 impl FromToU8<DisconnectReasonCode> for DisconnectReasonCode {
     fn to_u8(&self) -> u8 {
@@ -207,12 +217,12 @@ impl FromToU8<DisconnectReasonCode> for DisconnectReasonCode {
             DisconnectReasonCode::ConnectionRateExceeded => 159,
             DisconnectReasonCode::MaximumConnectTime => 160,
             DisconnectReasonCode::SubscriptionIdentifiersNotSupported => 161,
-            DisconnectReasonCode::WildcardSubscriptionsNotSupported => 162
+            DisconnectReasonCode::WildcardSubscriptionsNotSupported => 162,
         }
     }
 
     fn from_u8(byte: u8) -> Result<DisconnectReasonCode, Error> {
-        match  byte {
+        match byte {
             0 => Ok(DisconnectReasonCode::NormalDisconnection),
             4 => Ok(DisconnectReasonCode::DisconnectWithWillMessage),
             128 => Ok(DisconnectReasonCode::UnspecifiedError),
@@ -242,30 +252,33 @@ impl FromToU8<DisconnectReasonCode> for DisconnectReasonCode {
             160 => Ok(DisconnectReasonCode::MaximumConnectTime),
             161 => Ok(DisconnectReasonCode::SubscriptionIdentifiersNotSupported),
             162 => Ok(DisconnectReasonCode::WildcardSubscriptionsNotSupported),
-            n => Err(Error::InvalidReasonCode(n))
+            n => Err(Error::InvalidReasonCode(n)),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
     use crate::disconnect::Disconnect;
     use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_disconnect() {
         let disconnect_bytes = &[
-            0b1110_0000u8, 7,  // fixed header
+            0b1110_0000u8,
+            7,    // fixed header
             0x00, // disconnect reason code
-            5, // properties length
+            5,    // properties length
             0x1F, // property id
-            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00,
+            0x02,
+            'I' as u8,
+            'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(disconnect_bytes);
-        let disconnect = Disconnect::from_buf(&mut buf)
-            .expect("Failed to parse Disconnect Packet");
+        let disconnect = Disconnect::from_buf(&mut buf).expect("Failed to parse Disconnect Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         disconnect.to_buf(&mut buf);

@@ -1,10 +1,10 @@
 use crate::error::Error;
-use bytes::{BufMut, BytesMut, Buf};
-use crate::{Frame, read_string};
+use crate::{read_string, Frame};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
-    MQTT5
+    MQTT5,
 }
 
 impl Frame<Protocol> for Protocol {
@@ -20,13 +20,12 @@ impl Frame<Protocol> for Protocol {
     }
 
     fn from_buf(buf: &mut BytesMut) -> Result<Protocol, Error> {
-        let name = read_string(buf)
-            .expect("Failed to parse Protocol Name");
+        let name = read_string(buf).expect("Failed to parse Protocol Name");
         let name = name.as_ref();
         let level = buf.get_u8();
         match (name, level) {
             ("MQTT", 5u8) => Ok(Protocol::MQTT5),
-            _ => Err(Error::InvalidProtocol(name.into(), level))
+            _ => Err(Error::InvalidProtocol(name.into(), level)),
         }
     }
 
@@ -51,6 +50,6 @@ mod test {
         let buf = &mut Vec::<u8>::with_capacity(1024);
         let protocol = Protocol::MQTT5;
         let len = protocol.to_buf(buf);
-        println!("len: {}, buf: {:?}",len, buf);
+        println!("len: {}, buf: {:?}", len, buf);
     }
 }

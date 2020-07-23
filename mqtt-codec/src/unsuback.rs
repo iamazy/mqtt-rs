@@ -1,15 +1,15 @@
 use crate::fixed_header::FixedHeader;
-use crate::unsubscribe::UnSubscribeReasonCode;
-use crate::packet::{PacketId, PacketType, PacketCodec};
-use crate::{Mqtt5Property, Frame, Error, FromToU8, write_variable_bytes};
-use bytes::{BytesMut, BufMut, Buf};
+use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
+use crate::unsubscribe::UnSubscribeReasonCode;
+use crate::{write_variable_bytes, Error, Frame, FromToU8, Mqtt5Property};
+use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubAck {
     fixed_header: FixedHeader,
     variable_header: UnSubAckVariableHeader,
-    payload: Vec<UnSubscribeReasonCode>
+    payload: Vec<UnSubscribeReasonCode>,
 }
 
 impl Default for UnSubAck {
@@ -21,12 +21,12 @@ impl Default for UnSubAck {
             dup: false,
             qos: Qos::AtMostOnce,
             retain: false,
-            remaining_length: variable_header.length() + payload.len()
+            remaining_length: variable_header.length() + payload.len(),
         };
         UnSubAck {
             fixed_header,
             variable_header,
-            payload
+            payload,
         }
     }
 }
@@ -47,7 +47,7 @@ impl PacketCodec<UnSubAck> for UnSubAck {
         Ok(UnSubAck {
             fixed_header,
             variable_header,
-            payload
+            payload,
         })
     }
 }
@@ -66,9 +66,19 @@ impl Frame<UnSubAck> for UnSubAck {
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAck, Error> {
         let fixed_header = UnSubAck::decode_fixed_header(buf);
         assert_eq!(fixed_header.packet_type, PacketType::UNSUBACK);
-        assert_eq!(fixed_header.dup, false, "The dup of UnSubAck Fixed Header must be set to false");
-        assert_eq!(fixed_header.qos, Qos::AtMostOnce, "The qos of UnSubAck Fixed Header must be set to be AtMostOnce");
-        assert_eq!(fixed_header.retain, false, "The retain of UnSubAck Fixed Header must be set to false");
+        assert_eq!(
+            fixed_header.dup, false,
+            "The dup of UnSubAck Fixed Header must be set to false"
+        );
+        assert_eq!(
+            fixed_header.qos,
+            Qos::AtMostOnce,
+            "The qos of UnSubAck Fixed Header must be set to be AtMostOnce"
+        );
+        assert_eq!(
+            fixed_header.retain, false,
+            "The retain of UnSubAck Fixed Header must be set to false"
+        );
         UnSubAck::from_buf_extra(buf, fixed_header)
     }
 
@@ -80,18 +90,20 @@ impl Frame<UnSubAck> for UnSubAck {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubAckVariableHeader {
     packet_id: PacketId,
-    unsuback_property: Mqtt5Property
+    unsuback_property: Mqtt5Property,
 }
 
 impl UnSubAckVariableHeader {
-
     fn check_unsuback_property(unsuback_property: &mut Mqtt5Property) -> Result<(), Error> {
-
         for key in unsuback_property.properties.keys() {
             let key = *key;
             match key {
-                0x1F | 0x26 => {},
-                _ => return Err(Error::InvalidPropertyType("UnSubAck Properties contains a invalid property".to_string()))
+                0x1F | 0x26 => {}
+                _ => {
+                    return Err(Error::InvalidPropertyType(
+                        "UnSubAck Properties contains a invalid property".to_string(),
+                    ))
+                }
             }
         }
         Ok(())
@@ -107,12 +119,12 @@ impl Frame<UnSubAckVariableHeader> for UnSubAckVariableHeader {
 
     fn from_buf(buf: &mut BytesMut) -> Result<UnSubAckVariableHeader, Error> {
         let packet_id = PacketId::new(buf.get_u16());
-        let mut unsuback_property = Mqtt5Property::from_buf(buf)
-            .expect("Failed to parse UnSubAck Properties");
+        let mut unsuback_property =
+            Mqtt5Property::from_buf(buf).expect("Failed to parse UnSubAck Properties");
         UnSubAckVariableHeader::check_unsuback_property(&mut unsuback_property)?;
         Ok(UnSubAckVariableHeader {
             packet_id,
-            unsuback_property
+            unsuback_property,
         })
     }
 
@@ -121,27 +133,32 @@ impl Frame<UnSubAckVariableHeader> for UnSubAckVariableHeader {
     }
 }
 
-
 #[cfg(test)]
 mod test {
-    use bytes::{BytesMut, BufMut};
-    use crate::Frame;
     use crate::unsuback::UnSubAck;
+    use crate::Frame;
+    use bytes::{BufMut, BytesMut};
 
     #[test]
     fn test_unsuback() {
         let unsuback_bytes = &[
-            0b1011_0000u8, 11,  // fixed header
-            0x00, 0x10, // packet identifier
-            5, // properties length
+            0b1011_0000u8,
+            11, // fixed header
+            0x00,
+            0x10, // packet identifier
+            5,    // properties length
             0x1F, // property id
-            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
-            0x00, 0x11, 0x80
+            0x00,
+            0x02,
+            'I' as u8,
+            'a' as u8, // reason string
+            0x00,
+            0x11,
+            0x80,
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(unsuback_bytes);
-        let unsuback = UnSubAck::from_buf(&mut buf)
-            .expect("Failed to parse UnSubAck Packet");
+        let unsuback = UnSubAck::from_buf(&mut buf).expect("Failed to parse UnSubAck Packet");
 
         let mut buf = BytesMut::with_capacity(64);
         unsuback.to_buf(&mut buf);
