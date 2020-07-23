@@ -5,11 +5,30 @@ use crate::subscribe::SubscribeReasonCode;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SubAck {
     fixed_header: FixedHeader,
     variable_header: SubAckVariableHeader,
     payload: Vec<SubscribeReasonCode>
+}
+
+impl Default for SubAck {
+    fn default() -> Self {
+        let variable_header = SubAckVariableHeader::default();
+        let payload = Vec::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::SUBACK,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload.len()
+        };
+        SubAck {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
 }
 
 impl PacketCodec<SubAck> for SubAck {

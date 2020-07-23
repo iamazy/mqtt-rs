@@ -494,10 +494,4 @@ mod test {
         println!("{:?}", buf.to_vec());
         assert_eq!(connect, Connect::from_buf(&mut buf).unwrap());
     }
-
-    #[test]
-    fn test_default() {
-        let default = Connect::default();
-        println!("{:?}", default);
-    }
 }

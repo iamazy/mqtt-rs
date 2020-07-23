@@ -5,11 +5,30 @@ use crate::{Mqtt5Property, Frame, Error, FromToU8, write_variable_bytes};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnSubAck {
     fixed_header: FixedHeader,
     variable_header: UnSubAckVariableHeader,
     payload: Vec<UnSubscribeReasonCode>
+}
+
+impl Default for UnSubAck {
+    fn default() -> Self {
+        let variable_header = UnSubAckVariableHeader::default();
+        let payload = Vec::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::UNSUBACK,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload.len()
+        };
+        UnSubAck {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
 }
 
 impl PacketCodec<UnSubAck> for UnSubAck {

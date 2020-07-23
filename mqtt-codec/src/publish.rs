@@ -10,6 +10,25 @@ pub struct Publish {
     payload: Bytes,
 }
 
+impl Default for Publish {
+    fn default() -> Self {
+        let variable_header = PublishVariableHeader::default();
+        let payload = Bytes::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::PUBLISH,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload.len()
+        };
+        Publish {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
+}
+
 impl PacketCodec<Publish> for Publish {
     fn from_buf_extra(buf: &mut BytesMut, fixed_header: FixedHeader) -> Result<Publish, Error> {
         let variable_header = PublishVariableHeader::from_buf(buf)
@@ -52,7 +71,7 @@ impl Frame<Publish> for Publish {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PublishVariableHeader {
     topic_name: String,
     packet_id: PacketId,

@@ -4,10 +4,27 @@ use crate::{FromToU8, Error, Mqtt5Property, Frame};
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PubComp {
     fixed_header: FixedHeader,
     variable_header: PubCompVariableHeader
+}
+
+impl Default for PubComp {
+    fn default() -> Self {
+        let variable_header = PubCompVariableHeader::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::PUBREC,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length()
+        };
+        PubComp {
+            fixed_header,
+            variable_header
+        }
+    }
 }
 
 impl PacketCodec<PubComp> for PubComp {

@@ -5,10 +5,27 @@ use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
     fixed_header: FixedHeader,
     variable_header: ConnAckVariableHeader,
+}
+
+impl Default for ConnAck {
+    fn default() -> Self {
+        let variable_header = ConnAckVariableHeader::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::CONNACK,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length()
+        };
+        ConnAck {
+            fixed_header,
+            variable_header
+        }
+    }
 }
 
 impl PacketCodec<ConnAck> for ConnAck {

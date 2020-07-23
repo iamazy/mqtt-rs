@@ -4,11 +4,34 @@ use crate::fixed_header::FixedHeader;
 use bytes::{BytesMut, BufMut, Buf};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UnSubscribe {
     fixed_header: FixedHeader,
     variable_header: UnSubscribeVariableHeader,
     payload: Vec<String>
+}
+
+impl Default for UnSubscribe {
+    fn default() -> Self {
+        let variable_header = UnSubscribeVariableHeader::default();
+        let payload = Vec::<String>::default();
+        let mut payload_bytes_len = 0 as usize;
+        for item in payload.clone() {
+            payload_bytes_len += item.as_bytes().len() + 2
+        }
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::UNSUBACK,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload_bytes_len
+        };
+        UnSubscribe {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
 }
 
 impl PacketCodec<UnSubscribe> for UnSubscribe {

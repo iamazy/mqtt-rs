@@ -4,10 +4,27 @@ use bytes::{BytesMut, BufMut, Buf};
 use crate::packet::{PacketId, PacketType, PacketCodec};
 use crate::publish::Qos;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PubAck {
     fixed_header: FixedHeader,
     variable_header: PubAckVariableHeader,
+}
+
+impl Default for PubAck {
+    fn default() -> Self {
+        let variable_header = PubAckVariableHeader::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::PUBACK,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length()
+        };
+        PubAck {
+            fixed_header,
+            variable_header
+        }
+    }
 }
 
 impl PacketCodec<PubAck> for PubAck {

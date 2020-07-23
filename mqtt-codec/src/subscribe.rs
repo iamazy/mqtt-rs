@@ -4,12 +4,31 @@ use crate::{Mqtt5Property, FromToU8, Frame, Error, write_string, read_string, wr
 use crate::publish::Qos;
 use bytes::{BytesMut, BufMut, Buf};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
     fixed_header: FixedHeader,
     variable_header: SubscribeVariableHeader,
     // (topic filter, subscription options)
     payload: Vec<(String, SubscriptionOptions)>,
+}
+
+impl Default for Subscribe {
+    fn default() -> Self {
+        let variable_header = SubscribeVariableHeader::default();
+        let payload = Vec::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::SUBSCRIBE,
+            dup: false,
+            qos: Qos::AtLeastOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload.len()
+        };
+        Subscribe {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
 }
 
 impl PacketCodec<Subscribe> for Subscribe {
