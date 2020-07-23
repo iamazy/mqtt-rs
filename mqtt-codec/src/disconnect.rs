@@ -39,7 +39,7 @@ impl Frame<Disconnect> for Disconnect {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -85,7 +85,7 @@ impl Frame<DisconnectVariableHeader> for DisconnectVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        1 + self.disconnect_property.length()
     }
 }
 

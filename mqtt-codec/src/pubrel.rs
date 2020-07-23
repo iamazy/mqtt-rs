@@ -38,7 +38,7 @@ impl Frame<PubRel> for PubRel {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.remaining_length + self.fixed_header.remaining_length
     }
 }
 
@@ -89,7 +89,7 @@ impl Frame<PubRelVariableHeader> for PubRelVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.pubrel_property.length() + 1
     }
 }
 

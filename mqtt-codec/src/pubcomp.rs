@@ -38,7 +38,7 @@ impl Frame<PubComp> for PubComp {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -89,7 +89,7 @@ impl Frame<PubCompVariableHeader> for PubCompVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + 1 + self.pubcomp_property.length()
     }
 }
 

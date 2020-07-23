@@ -30,7 +30,7 @@ impl Default for Auth {
                 dup: false,
                 qos: Qos::AtMostOnce,
                 retain: false,
-                remaining_length: 0,
+                remaining_length: variable_header.length(),
             },
             variable_header,
         }
@@ -54,7 +54,7 @@ impl Frame<Auth> for Auth {
     }
 
     fn length(&self) -> usize {
-        self.fixed_header.length() + self.variable_header.length()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 

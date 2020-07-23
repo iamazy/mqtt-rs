@@ -9,6 +9,7 @@ pub struct FixedHeader {
     pub dup: bool,
     pub qos: Qos,
     pub retain: bool,
+    /// This is the length of the Variable Header plus the length of the Payload. It is encoded as a Variable Byte Integer
     pub remaining_length: usize,
 }
 
@@ -49,6 +50,6 @@ impl Frame<FixedHeader> for FixedHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        1 + write_variable_bytes(self.remaining_length,|_|{})
     }
 }

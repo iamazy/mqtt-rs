@@ -54,7 +54,7 @@ impl Frame<UnSubscribe> for UnSubscribe {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -98,7 +98,7 @@ impl Frame<UnSubscribeVariableHeader> for UnSubscribeVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.unsubscribe_property.length()
     }
 }
 

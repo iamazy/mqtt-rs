@@ -54,7 +54,7 @@ impl Frame<SubAck> for SubAck {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -99,7 +99,7 @@ impl Frame<SubAckVariableHeader> for SubAckVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.suback_property.length()
     }
 }
 

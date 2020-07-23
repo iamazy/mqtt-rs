@@ -33,7 +33,7 @@ impl Frame<PingReq> for PingReq {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 

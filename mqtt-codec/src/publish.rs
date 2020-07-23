@@ -48,7 +48,7 @@ impl Frame<Publish> for Publish {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -95,7 +95,7 @@ impl Frame<PublishVariableHeader> for PublishVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.topic_name.as_bytes().len() + self.publish_property.length()
     }
 }
 

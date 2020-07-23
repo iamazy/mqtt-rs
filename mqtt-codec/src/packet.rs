@@ -31,8 +31,12 @@ impl PacketId {
         self.0.get()
     }
 
-    pub(crate) fn to_buf(self, buf: &mut impl BufMut) -> usize {
+    pub fn to_buf(self, buf: &mut impl BufMut) -> usize {
         buf.put_u16(self.get());
+        2
+    }
+
+    pub fn length(&self) -> usize {
         2
     }
 }

@@ -38,7 +38,7 @@ impl Frame<PubRec> for PubRec {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -90,7 +90,7 @@ impl Frame<PubRecVariableHeader> for PubRecVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.pubrec_property.length() + 1
     }
 }
 

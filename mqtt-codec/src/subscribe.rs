@@ -56,7 +56,7 @@ impl Frame<Subscribe> for Subscribe {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -100,7 +100,7 @@ impl Frame<SubscribeVariableHeader> for SubscribeVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.packet_id.length() + self.subscribe_property.length()
     }
 }
 
@@ -143,7 +143,7 @@ impl Frame<SubscriptionOptions> for SubscriptionOptions {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        1
     }
 }
 

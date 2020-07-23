@@ -38,7 +38,7 @@ impl Frame<PubAck> for PubAck {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -88,7 +88,7 @@ impl Frame<PubAckVariableHeader> for PubAckVariableHeader {
     }
 
     fn length(&self) -> usize {
-        unimplemented!()
+        1 + self.packet_id.length() + self.puback_property.length()
     }
 }
 

@@ -281,7 +281,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let content_type = read_string(buf).expect("Failed to parse Content Type");
                     property.properties.insert(0x03, PropertyValue::String(content_type.clone()));
-                    prop_len += content_type.len() + 2;
+                    prop_len += content_type.as_bytes().len() + 2;
                 }
                 // Response Topic -> Will, Publish
                 0x08 => {
@@ -290,7 +290,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let response_topic = read_string(buf).expect("Failed to parse Response Topic");
                     property.properties.insert(0x08, PropertyValue::String(response_topic.clone()));
-                    prop_len += response_topic.len() + 2;
+                    prop_len += response_topic.as_bytes().len() + 2;
                 }
                 // Correlation Data -> Will, Publish
                 0x09 => {
@@ -326,7 +326,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let assigned_client_identifier = read_string(buf).expect("Failed to parse Assigned Client Identifier");
                     property.properties.insert(0x12, PropertyValue::String(assigned_client_identifier.clone()));
-                    prop_len += assigned_client_identifier.len() + 2;
+                    prop_len += assigned_client_identifier.as_bytes().len() + 2;
                 }
                 // Server Keep Alive -> Connack
                 0x13 => {
@@ -344,7 +344,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let authentication_method = read_string(buf).expect("Failed to parse Authentication Method");
                     property.properties.insert(0x15, PropertyValue::String(authentication_method.clone()));
-                    prop_len += authentication_method.len() + 2;
+                    prop_len += authentication_method.as_bytes().len() + 2;
                 }
                 // Authentication Data -> Connect
                 0x16 => {
@@ -391,7 +391,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let response_information = read_string(buf).expect("Failed to parse Response Information");
                     property.properties.insert(0x1A, PropertyValue::String(response_information.clone()));
-                    prop_len += response_information.len() + 2;
+                    prop_len += response_information.as_bytes().len() + 2;
                 }
                 // Server Reference -> Connack
                 0x1C => {
@@ -400,7 +400,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let server_information = read_string(buf).expect("Failed to parse Server Reference");
                     property.properties.insert(0x1C, PropertyValue::String(server_information.clone()));
-                    prop_len += server_information.len() + 2;
+                    prop_len += server_information.as_bytes().len() + 2;
                 }
                 // Reason String -> Connack
                 0x1F => {
@@ -409,7 +409,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let reason_string = read_string(buf).expect("Failed to parse Reason Strinng");
                     property.properties.insert(0x1F, PropertyValue::String(reason_string.clone()));
-                    prop_len += reason_string.len() + 2;
+                    prop_len += reason_string.as_bytes().len() + 2;
                 }
                 // Receive Maximum -> Connect, Connack
                 0x21 => {
@@ -545,7 +545,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
     }
 
     fn length(&self) -> usize {
-        self.property_length
+        self.property_length + write_variable_bytes(self.property_length, |_| {})
     }
 }
 

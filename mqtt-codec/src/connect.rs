@@ -5,11 +5,30 @@ use bytes::{BytesMut, BufMut, Buf, Bytes};
 use crate::fixed_header::FixedHeader;
 use crate::packet::{PacketType, PacketCodec};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
     fixed_header: FixedHeader,
     variable_header: ConnectVariableHeader,
     payload: ConnectPayload,
+}
+
+impl Default for Connect {
+    fn default() -> Self {
+        let variable_header = ConnectVariableHeader::default();
+        let payload = ConnectPayload::default();
+        let fixed_header = FixedHeader {
+            packet_type: PacketType::CONNECT,
+            dup: false,
+            qos: Qos::AtMostOnce,
+            retain: false,
+            remaining_length: variable_header.length() + payload.length(&variable_header.connect_flags)
+        };
+        Connect {
+            fixed_header,
+            variable_header,
+            payload
+        }
+    }
 }
 
 impl PacketCodec<Connect> for Connect {
@@ -48,7 +67,7 @@ impl Frame<Connect> for Connect {
     }
 
     fn length(&self) -> usize {
-        self.fixed_header.length() + self.variable_header.length() + self.payload.length(&self.variable_header.connect_flags)
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
@@ -104,7 +123,10 @@ impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
     }
 
     fn length(&self) -> usize {
-        self.protocol.length() + self.connect_flags.length() + 2 + self.connect_property.length()
+        self.protocol.length()
+            + 2
+            + self.connect_flags.length()
+            + self.connect_property.length()
     }
 }
 
@@ -272,7 +294,19 @@ impl ConnectPayload {
     }
 
     fn length(&self, connect_flags: &ConnectFlags) -> usize {
-        0
+        let mut len = self.client_id.as_bytes().len() + 2;
+        if connect_flags.will_flag {
+            len += self.will_property.as_ref().unwrap().length();
+            len += self.will_topic.as_ref().unwrap().as_bytes().len() + 2;
+            len += self.will_payload.as_ref().unwrap().len() + 2;
+        }
+        if connect_flags.username_flag {
+            len += self.username.as_ref().unwrap().as_bytes().len() + 2;
+        }
+        if connect_flags.password_flag {
+            len += self.password.as_ref().unwrap().as_bytes().len() + 2;
+        }
+        len
     }
 }
 

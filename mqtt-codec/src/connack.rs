@@ -38,7 +38,7 @@ impl Frame<ConnAck> for ConnAck {
     }
 
     fn length(&self) -> usize {
-        self.fixed_header.length() + self.variable_header.length()
+        self.fixed_header.length() + self.fixed_header.remaining_length
     }
 }
 
