@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 tokio = { version = "0.2", features = ["full"] }
 tokio-util = { version = "0.3", features = ["codec"] }
-mqtt-codec = { version = "0.1.0", path = "../mqtt-codec" }
+mqtt-codec = { path = "../mqtt-codec" }
 serde = "1"
 serde_derive = "1"
 bytes = "0.5"
