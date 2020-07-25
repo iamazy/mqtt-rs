@@ -66,10 +66,10 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_pingreq() {
         let pingreq_bytes = &[
-            0b1100_0000u8,
-            0, // fixed header
+            0b1100_0000u8, 0, // fixed header
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(pingreq_bytes);

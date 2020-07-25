@@ -190,19 +190,15 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_pubrec() {
         let pubrec_bytes = &[
-            0b0101_0000u8,
-            9, // fixed header
-            0x00,
-            0x10, // packet identifier
+            0b0101_0000u8, 9, // fixed header
+            0x00, 0x10, // packet identifier
             0x00, // pubrec reason code
             5,    // properties length
             0x1F, // property id
-            0x00,
-            0x02,
-            'I' as u8,
-            'a' as u8, // reason string
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(pubrec_bytes);

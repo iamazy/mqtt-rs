@@ -140,21 +140,15 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_unsuback() {
         let unsuback_bytes = &[
-            0b1011_0000u8,
-            11, // fixed header
-            0x00,
-            0x10, // packet identifier
+            0b1011_0000u8, 11, // fixed header
+            0x00, 0x10, // packet identifier
             5,    // properties length
             0x1F, // property id
-            0x00,
-            0x02,
-            'I' as u8,
-            'a' as u8, // reason string
-            0x00,
-            0x11,
-            0x80,
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
+            0x00, 0x11, 0x80,
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(unsuback_bytes);

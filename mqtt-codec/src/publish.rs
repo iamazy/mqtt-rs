@@ -168,24 +168,13 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_publish() {
         let publish_bytes = &[
-            0b0011_1101u8,
-            14, // fixed header,
-            0x00,
-            0x03,
-            'c' as u8,
-            'a' as u8,
-            't' as u8, // topic name
-            0x00,
-            0x10, // packet identifier
-            6,
-            0x08,
-            0x00,
-            0x03,
-            'c' as u8,
-            'a' as u8,
-            't' as u8, // reponse topic
+            0b0011_1101u8, 14, // fixed header,
+            0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // topic name
+            0x00, 0x10, // packet identifier
+            6, 0x08, 0x00, 0x03, 'c' as u8, 'a' as u8, 't' as u8, // reponse topic
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(publish_bytes);

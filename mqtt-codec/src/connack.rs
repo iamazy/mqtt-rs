@@ -163,18 +163,13 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_connack() {
         let connack_bytes = &[
-            0b0010_0000,
-            8,           // fixed header
+            0b0010_0000, 8,           // fixed header
             0b0000_0000, // connack flag
             0x00,        // conack reason code
-            0x05,
-            0x11,
-            0x00,
-            0x00,
-            0x00,
-            0x10, // connack properties
+            0x05, 0x11, 0x00, 0x00, 0x00, 0x10, // connack properties
         ];
 
         let mut buf = BytesMut::with_capacity(64);

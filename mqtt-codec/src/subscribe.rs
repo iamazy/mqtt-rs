@@ -262,26 +262,17 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_subscribe() {
         let subscribe_bytes = &[
-            0b1000_0010u8,
-            17, // fixed header
-            0x00,
-            0x10, // packet identifier
+            0b1000_0010u8, 17, // fixed header
+            0x00, 0x10, // packet identifier
             2,    // properties length
             0x0B, // property id
             0x02, // subscription identifier
-            0x00,
-            0x03,
-            'a' as u8,
-            '/' as u8,
-            'b' as u8, // topic filter
+            0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, // topic filter
             0x01,      // subscription options
-            0x00,
-            0x03,
-            'c' as u8,
-            '/' as u8,
-            'd' as u8, // topic filter
+            0x00, 0x03, 'c' as u8, '/' as u8, 'd' as u8, // topic filter
             0x02,      // subscription options
         ];
         let mut buf = BytesMut::with_capacity(64);

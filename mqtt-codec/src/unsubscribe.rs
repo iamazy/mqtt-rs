@@ -191,48 +191,19 @@ impl FromToU8<UnSubscribeReasonCode> for UnSubscribeReasonCode {
 }
 
 #[test]
+#[rustfmt::skip]
 fn test_subscribe() {
     let unsubscribe_bytes = &[
-        0b1010_0010u8,
-        38, // fixed header
-        0x00,
-        0x10, // packet identifier
+        0b1010_0010u8, 38, // fixed header
+        0x00, 0x10, // packet identifier
         25,   // properties length
         0x26, // property id
-        0x00,
-        0x04,
-        'n' as u8,
-        'a' as u8,
-        'm' as u8,
-        'e' as u8, // user property key1
-        0x00,
-        0x06,
-        'i' as u8,
-        'a' as u8,
-        'm' as u8,
-        'a' as u8,
-        'z' as u8,
-        'y' as u8, // user property value1
-        0x26,
-        0x00,
-        0x03,
-        'a' as u8,
-        'g' as u8,
-        'e' as u8, // user property key2
-        0x00,
-        0x02,
-        '2' as u8,
-        '4' as u8, // user property value2
-        0x00,
-        0x03,
-        'a' as u8,
-        '/' as u8,
-        'b' as u8, // topic filter
-        0x00,
-        0x03,
-        'c' as u8,
-        '/' as u8,
-        'd' as u8, // topic filter
+        0x00, 0x04, 'n' as u8, 'a' as u8, 'm' as u8, 'e' as u8, // user property key1
+        0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // user property value1
+        0x26, 0x00, 0x03, 'a' as u8, 'g' as u8, 'e' as u8, // user property key2
+        0x00, 0x02, '2' as u8, '4' as u8, // user property value2
+        0x00, 0x03, 'a' as u8, '/' as u8, 'b' as u8, // topic filter
+        0x00, 0x03, 'c' as u8, '/' as u8, 'd' as u8, // topic filter
     ];
     let mut buf = BytesMut::with_capacity(64);
     buf.put_slice(unsubscribe_bytes);

@@ -264,17 +264,14 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_disconnect() {
         let disconnect_bytes = &[
-            0b1110_0000u8,
-            7,    // fixed header
+            0b1110_0000u8, 7,    // fixed header
             0x00, // disconnect reason code
             5,    // properties length
             0x1F, // property id
-            0x00,
-            0x02,
-            'I' as u8,
-            'a' as u8, // reason string
+            0x00, 0x02, 'I' as u8, 'a' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(disconnect_bytes);

@@ -160,20 +160,13 @@ mod test {
     use bytes::{BufMut, BytesMut};
 
     #[test]
+    #[rustfmt::skip]
     fn test_pubcomp() {
         let pubcomp_bytes = &[
-            0b0111_0000u8,
-            10, // fixed header,
-            0x00,
-            0x10, // packet identifier
+            0b0111_0000u8, 10, // fixed header,
+            0x00, 0x10, // packet identifier
             0x00, // pubcomp reason code
-            6,
-            0x1F,
-            0x00,
-            0x03,
-            'h' as u8,
-            'e' as u8,
-            'l' as u8, // reason string
+            6, 0x1F, 0x00, 0x03, 'h' as u8, 'e' as u8, 'l' as u8, // reason string
         ];
         let mut buf = BytesMut::with_capacity(64);
         buf.put_slice(pubcomp_bytes);
