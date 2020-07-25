@@ -10,6 +10,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Semaphore};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
+use std::borrow::Borrow;
 
 #[derive(Debug)]
 struct Listener {
@@ -119,25 +120,8 @@ impl Handler {
                 None => return Ok(()),
             };
             debug!("received packet {:?}", packet);
-
-            let connack_bytes = &[
-                0b0010_0000,
-                8,           // fixed header
-                0b0000_0000, // connack flag
-                0x00,        // conack reason code
-                0x05,
-                0x11,
-                0x00,
-                0x00,
-                0x00,
-                0x10, // connack properties
-            ];
-
-            let mut buf = BytesMut::with_capacity(64);
-            buf.put_slice(connack_bytes);
-            let connack = ConnAck::from_buf(&mut buf).expect("Failed to parse ConnAck Packet");
             self.connection
-                .write_packet(&Packet::ConnAck(connack))
+                .write_packet(&Packet::ConnAck(ConnAck::default()))
                 .await?;
         }
         Ok(())
