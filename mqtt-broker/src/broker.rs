@@ -1,7 +1,7 @@
 use bytes::{BufMut, BytesMut};
 use futures::Future;
 use mqtt_core::{
-    codec::{ConnAck, Frame, Packet},
+    codec::{ConnAck, Frame, Packet, PingResp},
     Connection, Result, Shutdown,
 };
 use std::net::SocketAddr;
@@ -119,10 +119,26 @@ impl Handler {
                 Some(packet) => packet,
                 None => return Ok(()),
             };
-            debug!("received packet {:?}", packet);
-            self.connection
-                .write_packet(&Packet::ConnAck(ConnAck::default()))
-                .await?;
+            self.process(&packet).await?;
+        }
+        Ok(())
+    }
+
+
+    async fn process(&mut self, packet: &Packet) -> Result<()> {
+        debug!("received packet {:?}", packet);
+        match packet.borrow() {
+            Packet::Connect(connect) => {
+                self.connection
+                    .write_packet(&Packet::ConnAck(ConnAck::default()))
+                    .await?;
+            }
+            Packet::PingReq(pingreq) => {
+                self.connection
+                    .write_packet(&Packet::PingResp(PingResp::default()))
+                    .await?;
+            }
+            _ => {}
         }
         Ok(())
     }

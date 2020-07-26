@@ -1,5 +1,6 @@
 use serde_derive::Deserialize;
 pub mod broker;
+mod channel;
 
 pub const DEFAULT_PORT: &str = "8888";
 

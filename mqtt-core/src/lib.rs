@@ -2,10 +2,17 @@ mod connection;
 pub use connection::Connection;
 mod shutdown;
 pub use shutdown::Shutdown;
+use tokio::sync::mpsc;
+use mqtt_codec::Packet;
 
 pub mod codec {
     pub use mqtt_codec::*;
 }
+
+/// Shorthand for the transmit half of the message channel
+type Tx = mpsc::UnboundedSender<Packet>;
+/// Shorthand for the receive half of the message channel
+type Rx = mpsc::UnboundedReceiver<Packet>;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
