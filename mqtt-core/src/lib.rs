@@ -1,9 +1,9 @@
 mod connection;
 pub use connection::Connection;
 mod shutdown;
+use mqtt_codec::Packet;
 pub use shutdown::Shutdown;
 use tokio::sync::mpsc;
-use mqtt_codec::Packet;
 
 pub mod codec {
     pub use mqtt_codec::*;

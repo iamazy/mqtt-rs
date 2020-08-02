@@ -1,3 +1,4 @@
+use crate::Result;
 use bytes::BytesMut;
 use mqtt_codec::{Error, Frame, Packet};
 use std::io;
@@ -18,7 +19,7 @@ impl Connection {
         }
     }
 
-    pub async fn read_packet(&mut self) -> Result<Option<Packet>, Error> {
+    pub async fn read_packet(&mut self) -> Result<Option<Packet>> {
         loop {
             match Packet::parse(&mut self.buffer) {
                 Ok(packet) => return Ok(Some(packet)),

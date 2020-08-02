@@ -3,16 +3,15 @@ use mqtt_core::{
     codec::{Connect, Packet, PingReq},
     Result,
 };
+use std::sync::Arc;
 use tokio::net::{TcpStream, ToSocketAddrs};
-use tracing::{instrument, debug, error};
-use tokio::time::{Duration, delay_for};
-use tokio::runtime::Runtime;
-use std::borrow::Borrow;
-
+use tokio::sync::Mutex;
+use tokio::time::{delay_for, Duration};
+use tracing::{debug, error, instrument};
 
 pub struct Client {
     pub shutdown: bool,
-    pub connection: Connection,
+    pub connection: Arc<Mutex<Connection>>,
 }
 
 pub async fn connect<T: ToSocketAddrs>(addr: T) -> Result<Client> {
@@ -20,8 +19,31 @@ pub async fn connect<T: ToSocketAddrs>(addr: T) -> Result<Client> {
     let connection = Connection::new(socket);
     Ok(Client {
         shutdown: false,
-        connection
+        connection: Arc::new(Mutex::new(connection)),
     })
+}
+
+pub async fn run(connection: &mut Arc<Mutex<Connection>>) -> Result<()> {
+    for i in 0..10 {
+        let connection = connection.clone();
+        tokio::spawn(async move {
+            loop {
+                match connection.lock().await.read_packet().await {
+                    Ok(Some(packet)) => {
+                        debug!("Received packet {:?}", packet);
+                    }
+                    _ => {}
+                };
+                connection
+                    .lock()
+                    .await
+                    .write_packet(&Packet::PingReq(PingReq::default()))
+                    .await;
+            }
+        })
+        .await;
+    }
+    Ok(())
 }
 
 impl Client {
@@ -29,26 +51,20 @@ impl Client {
     pub async fn connect(&mut self) -> Result<()> {
         // Send Connect Packet to Broker
         self.connection
+            .lock()
+            .await
             .write_packet(&Packet::Connect(Connect::default()))
             .await?;
-        Ok(())
-    }
-
-    pub async fn run(&mut self) -> Result<()> {
-        while !self.shutdown {
-            let packet = match self.connection.read_packet().await? {
-                Some(packet) => packet,
-                None => return Ok(()),
-            };
-            debug!("Received packet {:?}", packet);
-        }
         Ok(())
     }
 
     pub async fn ping(&mut self) -> Result<()> {
         loop {
             delay_for(Duration::from_secs(3)).await;
-            self.connection.write_packet(&Packet::PingReq(PingReq::default()))
+            self.connection
+                .lock()
+                .await
+                .write_packet(&Packet::PingReq(PingReq::default()))
                 .await;
         }
     }

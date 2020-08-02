@@ -9,9 +9,9 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Connect {
-    fixed_header: FixedHeader,
-    variable_header: ConnectVariableHeader,
-    payload: ConnectPayload,
+    pub fixed_header: FixedHeader,
+    pub variable_header: ConnectVariableHeader,
+    pub payload: ConnectPayload,
 }
 
 impl Default for Connect {

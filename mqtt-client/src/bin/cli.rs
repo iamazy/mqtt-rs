@@ -10,12 +10,14 @@ async fn main() -> mqtt_core::Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("no global subscriber has been set");
 
     let mut client = client::connect(&"127.0.0.1:8888").await?;
-    tokio::select! {
-        res = client.run() => {
-            if let Err(err) = res {
-                error!(cause = %err, "failed to accept");
-            }
-        }
-    }
+    // tokio::select! {
+    //     res = client.run() => {
+    //         if let Err(err) = res {
+    //             error!(cause = %err, "failed to accept");
+    //         }
+    //     }
+    // }
+    client.connect().await;
+    client::run(&mut client.connection).await;
     Ok(())
 }

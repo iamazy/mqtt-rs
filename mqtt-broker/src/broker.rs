@@ -1,16 +1,17 @@
-use bytes::{BufMut, BytesMut};
+use crate::channel::Channel;
 use futures::Future;
+use mqtt_core::codec::{Connect, PacketType, Protocol};
 use mqtt_core::{
-    codec::{ConnAck, Frame, Packet, PingResp},
+    codec::{ConnAck, Packet, PingResp},
     Connection, Result, Shutdown,
 };
+use std::borrow::Borrow;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::{broadcast, mpsc, Semaphore};
+use tokio::sync::{broadcast, mpsc, Mutex, Semaphore};
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info, instrument};
-use std::borrow::Borrow;
 
 #[derive(Debug)]
 struct Listener {
@@ -23,13 +24,13 @@ struct Listener {
 
 #[derive(Debug)]
 struct Handler {
-    connection: Connection,
-    limit_connections: Arc<Semaphore>,
+    channel: Channel,
     shutdown: Shutdown,
     _shutdown_complete: mpsc::UnboundedSender<()>,
+    limit_connections: Arc<Semaphore>,
 }
 
-const MAX_CONNECTIONS: usize = 250;
+const MAX_CONNECTIONS: usize = 2;
 
 pub async fn run(listener: TcpListener, shutdown: impl Future) -> Result<()> {
     let (notify_shutdown, _) = broadcast::channel(1);
@@ -73,10 +74,14 @@ impl Listener {
             self.limit_connections.acquire().await.forget();
             let (socket, addr) = self.accept().await?;
             let mut handler = Handler {
-                connection: Connection::new(socket),
-                limit_connections: self.limit_connections.clone(),
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
+                limit_connections: self.limit_connections.clone(),
+                channel: Channel::new(
+                    String::default(),
+                    addr,
+                    Arc::new(Mutex::new(Connection::new(socket))),
+                ),
             };
 
             tokio::spawn(async move {
@@ -108,9 +113,10 @@ impl Listener {
 impl Handler {
     #[instrument(skip(self))]
     async fn run(&mut self) -> Result<()> {
+        let mut i = 0;
         while !self.shutdown.is_shutdown() {
             let maybe_packet = tokio::select! {
-                res = self.connection.read_packet() => res?,
+                res = self.channel.read_packet() => res?,
                 _ = self.shutdown.recv() => {
                     return Ok(())
                 }
@@ -119,27 +125,45 @@ impl Handler {
                 Some(packet) => packet,
                 None => return Ok(()),
             };
-            self.process(&packet).await?;
+            self.process(&packet, &mut i).await?;
+            i += 1;
         }
         Ok(())
     }
 
-
-    async fn process(&mut self, packet: &Packet) -> Result<()> {
-        debug!("received packet {:?}", packet);
+    async fn process(&mut self, packet: &Packet, i: &mut i32) -> Result<()> {
+        debug!(
+            "{}, client: {}:{}, received packet {:?}",
+            i,
+            self.channel.address.ip(),
+            self.channel.address.port(),
+            packet
+        );
         match packet.borrow() {
             Packet::Connect(connect) => {
-                self.connection
-                    .write_packet(&Packet::ConnAck(ConnAck::default()))
-                    .await?;
+                self.handle_connect(connect).await?;
             }
             Packet::PingReq(pingreq) => {
-                self.connection
+                self.channel
                     .write_packet(&Packet::PingResp(PingResp::default()))
                     .await?;
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    async fn handle_connect(&mut self, connect: &Connect) -> Result<()> {
+        let fixed_header = &connect.fixed_header;
+        assert_eq!(fixed_header.packet_type, PacketType::CONNECT);
+        let variable_header = &connect.variable_header;
+        assert_eq!(variable_header.protocol, Protocol::MQTT5);
+        if variable_header.keep_alive > 0 {
+            self.channel.channel_context.keep_alive = variable_header.keep_alive as usize;
+        }
+        self.channel
+            .write_packet(&Packet::ConnAck(ConnAck::default()))
+            .await?;
         Ok(())
     }
 }
