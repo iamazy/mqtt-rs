@@ -8,10 +8,10 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Subscribe {
-    fixed_header: FixedHeader,
-    variable_header: SubscribeVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: SubscribeVariableHeader,
     // (topic filter, subscription options)
-    payload: Vec<(String, SubscriptionOptions)>,
+    pub payload: Vec<(String, SubscriptionOptions)>,
 }
 
 impl Default for Subscribe {

@@ -6,8 +6,8 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRel {
-    fixed_header: FixedHeader,
-    variable_header: PubRelVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: PubRelVariableHeader,
 }
 
 impl Default for PubRel {
@@ -71,9 +71,9 @@ impl Frame<PubRel> for PubRel {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PubRelVariableHeader {
-    packet_id: PacketId,
-    pubrel_reason_code: PubRelReasonCode,
-    pubrel_property: Mqtt5Property,
+    pub packet_id: PacketId,
+    pub pubrel_reason_code: PubRelReasonCode,
+    pub pubrel_property: Mqtt5Property,
 }
 
 impl PubRelVariableHeader {

@@ -143,12 +143,12 @@ impl Frame<ConnectVariableHeader> for ConnectVariableHeader {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnectFlags {
-    clean_start: bool,
-    will_flag: bool,
-    will_qos: Qos,
-    will_retain: bool,
-    username_flag: bool,
-    password_flag: bool,
+    pub clean_start: bool,
+    pub will_flag: bool,
+    pub will_qos: Qos,
+    pub will_retain: bool,
+    pub username_flag: bool,
+    pub password_flag: bool,
 }
 
 impl Frame<ConnectFlags> for ConnectFlags {
@@ -221,12 +221,12 @@ impl Frame<ConnectFlags> for ConnectFlags {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnectPayload {
-    client_id: String,
-    will_property: Option<Mqtt5Property>,
-    will_topic: Option<String>,
-    will_payload: Option<Bytes>,
-    username: Option<String>,
-    password: Option<String>,
+    pub client_id: String,
+    pub will_property: Option<Mqtt5Property>,
+    pub will_topic: Option<String>,
+    pub will_payload: Option<Bytes>,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 impl ConnectPayload {

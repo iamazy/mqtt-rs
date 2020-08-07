@@ -6,7 +6,7 @@ use bytes::{BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingResp {
-    fixed_header: FixedHeader,
+    pub fixed_header: FixedHeader,
 }
 
 impl Default for PingResp {

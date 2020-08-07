@@ -1,9 +1,10 @@
+use bytes::Bytes;
 use mqtt_core::codec::Packet;
 use mqtt_core::{Connection, Result};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 #[derive(Debug)]
 pub struct Channel {
@@ -16,9 +17,26 @@ pub struct Channel {
 
 #[derive(Debug, Default)]
 pub struct ChannelContext {
+    pub client_id: String,
+    pub clean_start: bool,
     pub keep_alive: usize,
+    pub session_expiry_interval: usize,
+    pub receive_maximum: usize,
+    pub maximum_packet_size: usize,
+    pub topic_alias_maximum: usize,
+    pub user_properties: Vec<(String, String)>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub content_type: String,
+    pub response_topic: String,
+    pub correlation_data: Bytes,
+    pub payload_format_indicator: String,
+    pub message_expiry_interval: usize,
+    pub will_topic: Option<String>,
+    pub will_payload: Option<Bytes>,
 }
 
+#[allow(dead_code)]
 impl Channel {
     pub fn new(id: String, address: SocketAddr, connection: Arc<Mutex<Connection>>) -> Channel {
         Channel {

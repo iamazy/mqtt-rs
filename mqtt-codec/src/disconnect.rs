@@ -6,8 +6,8 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Disconnect {
-    fixed_header: FixedHeader,
-    variable_header: DisconnectVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: DisconnectVariableHeader,
 }
 
 impl Default for Disconnect {
@@ -72,8 +72,8 @@ impl Frame<Disconnect> for Disconnect {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DisconnectVariableHeader {
-    reason_code: DisconnectReasonCode,
-    disconnect_property: Mqtt5Property,
+    pub reason_code: DisconnectReasonCode,
+    pub disconnect_property: Mqtt5Property,
 }
 
 impl DisconnectVariableHeader {

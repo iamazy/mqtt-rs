@@ -24,7 +24,7 @@ pub async fn main() -> mqtt_core::Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("no global subscriber has been set");
     let listener = TcpListener::bind(&format!("{}:{}", cfg.host, cfg.port)).await?;
     panic::set_hook(Box::new(|panic_info| {
-        error!("{:?}", panic_info);
+        error!("{:?}", panic_info.to_string());
     }));
     info!("mqtt broker started at {}:{}", cfg.host, cfg.port);
     broker::run(listener, tokio::signal::ctrl_c()).await

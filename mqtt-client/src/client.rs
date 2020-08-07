@@ -34,11 +34,9 @@ pub async fn run(connection: &mut Arc<Mutex<Connection>>) -> Result<()> {
                     }
                     _ => {}
                 };
-                connection
-                    .lock()
-                    .await
-                    .write_packet(&Packet::PingReq(PingReq::default()))
-                    .await;
+                delay_for(Duration::from_secs(3)).await;
+                #[rustfmt::skip]
+                connection.lock().await.write_packet(&Packet::PingReq(PingReq::default())).await;
             }
         })
         .await;
@@ -50,22 +48,16 @@ impl Client {
     #[instrument(skip(self))]
     pub async fn connect(&mut self) -> Result<()> {
         // Send Connect Packet to Broker
-        self.connection
-            .lock()
-            .await
-            .write_packet(&Packet::Connect(Connect::default()))
-            .await?;
+        #[rustfmt::skip]
+        self.connection.lock().await.write_packet(&Packet::Connect(Connect::default())).await?;
         Ok(())
     }
 
     pub async fn ping(&mut self) -> Result<()> {
         loop {
             delay_for(Duration::from_secs(3)).await;
-            self.connection
-                .lock()
-                .await
-                .write_packet(&Packet::PingReq(PingReq::default()))
-                .await;
+            #[rustfmt::skip]
+            self.connection.lock().await.write_packet(&Packet::PingReq(PingReq::default())).await;
         }
     }
 }

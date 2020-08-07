@@ -6,8 +6,8 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Auth {
-    fixed_header: FixedHeader,
-    variable_header: AuthVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: AuthVariableHeader,
 }
 
 impl PacketCodec<Auth> for Auth {
@@ -70,8 +70,8 @@ impl Frame<Auth> for Auth {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AuthVariableHeader {
-    reason_code: AuthenticateReasonCode,
-    auth_property: Mqtt5Property,
+    pub reason_code: AuthenticateReasonCode,
+    pub auth_property: Mqtt5Property,
 }
 
 impl AuthVariableHeader {

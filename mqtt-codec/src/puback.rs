@@ -6,8 +6,8 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubAck {
-    fixed_header: FixedHeader,
-    variable_header: PubAckVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: PubAckVariableHeader,
 }
 
 impl Default for PubAck {

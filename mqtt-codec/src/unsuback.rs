@@ -7,9 +7,9 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubAck {
-    fixed_header: FixedHeader,
-    variable_header: UnSubAckVariableHeader,
-    payload: Vec<UnSubscribeReasonCode>,
+    pub fixed_header: FixedHeader,
+    pub variable_header: UnSubAckVariableHeader,
+    pub payload: Vec<UnSubscribeReasonCode>,
 }
 
 impl Default for UnSubAck {

@@ -8,9 +8,9 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubscribe {
-    fixed_header: FixedHeader,
-    variable_header: UnSubscribeVariableHeader,
-    payload: Vec<String>,
+    pub fixed_header: FixedHeader,
+    pub variable_header: UnSubscribeVariableHeader,
+    pub payload: Vec<String>,
 }
 
 impl Default for UnSubscribe {
@@ -94,8 +94,8 @@ impl Frame<UnSubscribe> for UnSubscribe {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UnSubscribeVariableHeader {
-    packet_id: PacketId,
-    unsubscribe_property: Mqtt5Property,
+    pub packet_id: PacketId,
+    pub unsubscribe_property: Mqtt5Property,
 }
 
 impl UnSubscribeVariableHeader {

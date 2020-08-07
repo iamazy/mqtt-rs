@@ -7,9 +7,9 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubAck {
-    fixed_header: FixedHeader,
-    variable_header: SubAckVariableHeader,
-    payload: Vec<SubscribeReasonCode>,
+    pub fixed_header: FixedHeader,
+    pub variable_header: SubAckVariableHeader,
+    pub payload: Vec<SubscribeReasonCode>,
 }
 
 impl Default for SubAck {
@@ -89,8 +89,8 @@ impl Frame<SubAck> for SubAck {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SubAckVariableHeader {
-    packet_id: PacketId,
-    suback_property: Mqtt5Property,
+    pub packet_id: PacketId,
+    pub suback_property: Mqtt5Property,
 }
 
 impl SubAckVariableHeader {

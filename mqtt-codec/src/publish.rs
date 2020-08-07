@@ -7,9 +7,9 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Publish {
-    fixed_header: FixedHeader,
-    variable_header: PublishVariableHeader,
-    payload: Bytes,
+    pub fixed_header: FixedHeader,
+    pub variable_header: PublishVariableHeader,
+    pub payload: Bytes,
 }
 
 impl Default for Publish {
@@ -75,9 +75,9 @@ impl Frame<Publish> for Publish {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PublishVariableHeader {
-    topic_name: String,
-    packet_id: PacketId,
-    publish_property: Mqtt5Property,
+    pub topic_name: String,
+    pub packet_id: PacketId,
+    pub publish_property: Mqtt5Property,
 }
 
 impl PublishVariableHeader {

@@ -40,7 +40,8 @@ impl Frame<FixedHeader> for FixedHeader {
         let remaining_length = read_variable_bytes(buf)
             .expect("Failed to parse Fixed Header Remaining Length")
             .0;
-        assert_eq!(remaining_length, buf.len());
+        #[rustfmt::skip]
+        assert_eq!(remaining_length, buf.len(), "The remaining_length of FixedHeader is invalid");
         Ok(FixedHeader {
             packet_type,
             dup,

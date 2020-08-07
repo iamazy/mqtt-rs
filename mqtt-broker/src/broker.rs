@@ -1,17 +1,14 @@
 use crate::channel::Channel;
+use crate::handler::Handler;
 use futures::Future;
-use mqtt_core::codec::{Connect, PacketType, Protocol};
-use mqtt_core::{
-    codec::{ConnAck, Packet, PingResp},
-    Connection, Result, Shutdown,
-};
+use mqtt_core::{Connection, Result, Shutdown};
 use std::borrow::Borrow;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Mutex, Semaphore};
 use tokio::time::{self, Duration};
-use tracing::{debug, error, info, instrument};
+use tracing::{error, info};
 
 #[derive(Debug)]
 struct Listener {
@@ -20,14 +17,6 @@ struct Listener {
     notify_shutdown: broadcast::Sender<()>,
     shutdown_complete_rx: mpsc::UnboundedReceiver<()>,
     shutdown_complete_tx: mpsc::UnboundedSender<()>,
-}
-
-#[derive(Debug)]
-struct Handler {
-    channel: Channel,
-    shutdown: Shutdown,
-    _shutdown_complete: mpsc::UnboundedSender<()>,
-    limit_connections: Arc<Semaphore>,
 }
 
 const MAX_CONNECTIONS: usize = 2;
@@ -107,69 +96,5 @@ impl Listener {
             time::delay_for(Duration::from_secs(backoff)).await;
             backoff *= 2;
         }
-    }
-}
-
-impl Handler {
-    #[instrument(skip(self))]
-    async fn run(&mut self) -> Result<()> {
-        let mut i = 0;
-        while !self.shutdown.is_shutdown() {
-            let maybe_packet = tokio::select! {
-                res = self.channel.read_packet() => res?,
-                _ = self.shutdown.recv() => {
-                    return Ok(())
-                }
-            };
-            let packet = match maybe_packet {
-                Some(packet) => packet,
-                None => return Ok(()),
-            };
-            self.process(&packet, &mut i).await?;
-            i += 1;
-        }
-        Ok(())
-    }
-
-    async fn process(&mut self, packet: &Packet, i: &mut i32) -> Result<()> {
-        debug!(
-            "{}, client: {}:{}, received packet {:?}",
-            i,
-            self.channel.address.ip(),
-            self.channel.address.port(),
-            packet
-        );
-        match packet.borrow() {
-            Packet::Connect(connect) => {
-                self.handle_connect(connect).await?;
-            }
-            Packet::PingReq(pingreq) => {
-                self.channel
-                    .write_packet(&Packet::PingResp(PingResp::default()))
-                    .await?;
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    async fn handle_connect(&mut self, connect: &Connect) -> Result<()> {
-        let fixed_header = &connect.fixed_header;
-        assert_eq!(fixed_header.packet_type, PacketType::CONNECT);
-        let variable_header = &connect.variable_header;
-        assert_eq!(variable_header.protocol, Protocol::MQTT5);
-        if variable_header.keep_alive > 0 {
-            self.channel.channel_context.keep_alive = variable_header.keep_alive as usize;
-        }
-        self.channel
-            .write_packet(&Packet::ConnAck(ConnAck::default()))
-            .await?;
-        Ok(())
-    }
-}
-
-impl Drop for Handler {
-    fn drop(&mut self) {
-        self.limit_connections.add_permits(1);
     }
 }

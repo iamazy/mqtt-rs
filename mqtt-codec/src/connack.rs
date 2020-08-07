@@ -7,8 +7,8 @@ use bytes::{Buf, BufMut, BytesMut};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnAck {
-    fixed_header: FixedHeader,
-    variable_header: ConnAckVariableHeader,
+    pub fixed_header: FixedHeader,
+    pub variable_header: ConnAckVariableHeader,
 }
 
 impl Default for ConnAck {
@@ -73,9 +73,9 @@ impl Frame<ConnAck> for ConnAck {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnAckVariableHeader {
-    connack_flags: ConnAckFlags,
-    connect_reason_code: ConnectReasonCode,
-    connack_property: Mqtt5Property,
+    pub connack_flags: ConnAckFlags,
+    pub connect_reason_code: ConnectReasonCode,
+    pub connack_property: Mqtt5Property,
 }
 
 impl ConnAckVariableHeader {
@@ -87,7 +87,7 @@ impl ConnAckVariableHeader {
                 | 0x25 | 0x26 | 0x27 | 0x28 | 0x29 | 0x2A => {}
                 _ => {
                     return Err(Error::InvalidPropertyType(
-                        "Connack Properties contains a invalid property".to_string(),
+                        "ConnAck Properties contains a invalid property".to_string(),
                     ))
                 }
             }
@@ -126,7 +126,7 @@ impl Frame<ConnAckVariableHeader> for ConnAckVariableHeader {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ConnAckFlags {
-    session_present: bool,
+    pub session_present: bool,
 }
 
 impl Frame<ConnAckFlags> for ConnAckFlags {
