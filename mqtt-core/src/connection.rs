@@ -1,5 +1,5 @@
 use crate::Result;
-use bytes::{BytesMut, Bytes};
+use bytes::{Bytes, BytesMut};
 use mqtt_codec::{Error, Frame, Packet};
 use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
@@ -95,8 +95,12 @@ impl Connection {
         self.stream.flush().await
     }
 
-    pub async fn write_stream(&mut self, stream: &Bytes) -> io::Result<()>{
+    pub async fn write_stream(&mut self, stream: &Bytes) -> io::Result<()> {
         self.stream.write_all(stream).await?;
         self.stream.flush().await
+    }
+
+    pub async fn close(&mut self) {
+        self.stream.shutdown().await;
     }
 }

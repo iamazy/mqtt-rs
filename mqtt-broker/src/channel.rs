@@ -4,9 +4,9 @@ use mqtt_core::{Connection, Result};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
-use tokio::time::Instant;
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tokio::time::Duration;
+use tokio::time::Instant;
 
 #[derive(Debug)]
 pub struct Channel {
@@ -65,7 +65,7 @@ impl Channel {
                 return Ok(Some(packet));
             }
             Ok(None) => Ok(None),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -77,11 +77,12 @@ impl Channel {
         self.connection.lock().await.write_stream(stream).await
     }
 
-    pub fn is_open(&self) -> bool {
-        self.is_open
+    pub async fn close(&mut self) {
+        self.is_open = false;
+        self.connection.lock().await.close().await;
     }
 
-    pub fn close(&mut self) {
-        self.is_open = false;
+    pub fn is_open(&self) -> bool {
+        self.is_open
     }
 }
