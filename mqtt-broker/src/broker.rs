@@ -19,7 +19,7 @@ struct Listener {
     shutdown_complete_tx: mpsc::UnboundedSender<()>,
 }
 
-const MAX_CONNECTIONS: usize = 2;
+const MAX_CONNECTIONS: usize = 10;
 
 pub async fn run(listener: TcpListener, shutdown: impl Future) -> Result<()> {
     let (notify_shutdown, _) = broadcast::channel(1);
@@ -82,7 +82,7 @@ impl Listener {
             let idle_handler = tokio::spawn(async move {
                 handler2.lock().await.handle_idle().await;
             });
-            futures::join!(run_handler, idle_handler);
+            // futures::join!(run_handler, idle_handler);
         }
     }
 
