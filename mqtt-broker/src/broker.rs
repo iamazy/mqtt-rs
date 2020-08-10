@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, mpsc, Mutex, Semaphore};
-use tokio::time::{self, Duration};
+use tokio::time::{self, Duration, Instant, delay_for};
 use tracing::{error, info};
 
 #[derive(Debug)]
@@ -62,7 +62,7 @@ impl Listener {
         loop {
             self.limit_connections.acquire().await.forget();
             let (socket, addr) = self.accept().await?;
-            let mut handler = Handler {
+            let handler = Handler {
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
                 limit_connections: self.limit_connections.clone(),
@@ -72,12 +72,17 @@ impl Listener {
                     Arc::new(Mutex::new(Connection::new(socket))),
                 ),
             };
-
+            let handler = Arc::new(Mutex::new(handler));
+            let handler2 = handler.clone();
             tokio::spawn(async move {
+                let mut handler = handler.lock().await;
                 if let Err(err) = handler.run().await {
                     error!(cause = ?err, "connection error, address is {}:{}", addr.ip(), addr.port());
                 }
             });
+            // tokio::spawn(async move {
+            //     handler2.lock().await.handle_idle().await;
+            // });
         }
     }
 

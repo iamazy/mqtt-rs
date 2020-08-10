@@ -1,5 +1,5 @@
 use crate::Result;
-use bytes::BytesMut;
+use bytes::{BytesMut, Bytes};
 use mqtt_codec::{Error, Frame, Packet};
 use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
@@ -27,6 +27,11 @@ impl Connection {
                 Err(e) => return Err(e.into()),
             }
 
+            // There is not enough buffered data to read a frame. Attempt to
+            // read more data from the socket.
+            //
+            // On success, the number of bytes is returned. `0` indicates "end
+            // of stream".
             if 0 == self.stream.read_buf(&mut self.buffer).await? {
                 return if self.buffer.is_empty() {
                     Ok(None)
@@ -87,6 +92,11 @@ impl Connection {
             }
         }
         self.stream.write_all(&buf).await?;
+        self.stream.flush().await
+    }
+
+    pub async fn write_stream(&mut self, stream: &Bytes) -> io::Result<()>{
+        self.stream.write_all(stream).await?;
         self.stream.flush().await
     }
 }

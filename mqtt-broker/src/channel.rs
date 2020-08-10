@@ -4,7 +4,9 @@ use mqtt_core::{Connection, Result};
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
+use tokio::time::Instant;
+use tokio::time::Duration;
 
 #[derive(Debug)]
 pub struct Channel {
@@ -12,6 +14,10 @@ pub struct Channel {
     pub address: SocketAddr,
     pub connection: Arc<Mutex<Connection>>,
     pub channel_context: ChannelContext,
+    pub channel_listener: mpsc::UnboundedReceiver<()>,
+    /// timestamp of last packet received
+    pub last_recv: Instant,
+    pub connect: Instant,
     is_open: bool,
 }
 
@@ -39,21 +45,36 @@ pub struct ChannelContext {
 #[allow(dead_code)]
 impl Channel {
     pub fn new(id: String, address: SocketAddr, connection: Arc<Mutex<Connection>>) -> Channel {
+        let (_, rx) = mpsc::unbounded_channel();
         Channel {
             id,
             address,
             connection,
             channel_context: ChannelContext::default(),
             is_open: true,
+            last_recv: Instant::now(),
+            channel_listener: rx,
+            connect: Instant::now(),
         }
     }
 
     pub async fn read_packet(&mut self) -> Result<Option<Packet>> {
-        self.connection.lock().await.read_packet().await
+        match self.connection.lock().await.read_packet().await {
+            Ok(Some(packet)) => {
+                self.last_recv = Instant::now();
+                return Ok(Some(packet));
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e)
+        }
     }
 
     pub async fn write_packet(&mut self, packet: &Packet) -> io::Result<()> {
         self.connection.lock().await.write_packet(packet).await
+    }
+
+    pub async fn write_stream(&mut self, stream: &Bytes) -> io::Result<()> {
+        self.connection.lock().await.write_stream(stream).await
     }
 
     pub fn is_open(&self) -> bool {
@@ -61,6 +82,6 @@ impl Channel {
     }
 
     pub fn close(&mut self) {
-        self.is_open = false
+        self.is_open = false;
     }
 }

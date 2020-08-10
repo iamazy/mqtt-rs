@@ -1,11 +1,13 @@
 use crate::channel::Channel;
-use mqtt_core::codec::{ConnAck, Connect, Packet, PacketType, PingResp, Protocol};
+use mqtt_core::codec::{ConnAck, Connect, Packet, PacketType, PingResp, Protocol, Disconnect};
 use mqtt_core::Result;
 use mqtt_core::Shutdown;
 use std::borrow::Borrow;
 use std::sync::Arc;
 use tokio::sync::{mpsc, Semaphore};
 use tracing::{debug, instrument};
+use tokio::time::{Instant, Duration, delay_for};
+use bytes::Bytes;
 
 #[derive(Debug)]
 pub(crate) struct Handler {
@@ -18,7 +20,7 @@ pub(crate) struct Handler {
 impl Handler {
     #[instrument(skip(self))]
     pub(crate) async fn run(&mut self) -> Result<()> {
-        while !self.shutdown.is_shutdown() {
+        while self.channel.is_open() {
             let maybe_packet = tokio::select! {
                 res = self.channel.read_packet() => res?,
                 _ = self.shutdown.recv() => {
@@ -47,6 +49,18 @@ impl Handler {
                     .await?;
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn handle_idle(&mut self) -> Result<()> {
+        loop {
+            delay_for(Duration::from_secs(3)).await;
+            if Instant::now() - self.channel.connect > Duration::from_secs(3) {
+                debug!("channel close, client: {}:{}", self.channel.address.ip(), self.channel.address.port());
+                self.channel.write_stream(&Bytes::from("disconnect\n".to_string())).await;
+                self.channel.close();
+            }
         }
         Ok(())
     }
