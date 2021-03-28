@@ -1,6 +1,6 @@
 use crate::channel::Channel;
 use bytes::Bytes;
-use mqtt_core::codec::{ConnAck, Connect, Disconnect, Packet, PacketType, PingResp, Protocol};
+use mqtt_core::codec::{ConnAck, Connect, Disconnect, Packet, PacketType, PingResp, Protocol, DisconnectReasonCode};
 use mqtt_core::Result;
 use mqtt_core::Shutdown;
 use std::borrow::Borrow;
@@ -63,8 +63,10 @@ impl Handler {
                     self.channel.address.ip(),
                     self.channel.address.port()
                 );
+                let mut disconnect = Disconnect::default();
+                disconnect.variable_header.reason_code = DisconnectReasonCode::KeepAliveTimeout;
                 self.channel
-                    .write_stream(&Bytes::from("disconnect\n".to_string()))
+                    .write_packet(&Packet::Disconnect(disconnect))
                     .await;
                 break;
             }
