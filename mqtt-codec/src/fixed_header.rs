@@ -3,6 +3,60 @@ use crate::publish::Qos;
 use crate::{read_variable_bytes, write_variable_bytes, Error, Frame, FromToU8};
 use bytes::{Buf, BufMut, BytesMut};
 
+/// # Fixed Header format
+///
+/// <table style="border: 0" cellspacing="0" cellpadding="0">
+///  <tbody><tr>
+///   <td style="width:300px; height: 25px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>Bit</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>7</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>6</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>5</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>4</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>3</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>2</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>1</b></p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid">
+///   <p align="center" style="text-align:center"><b>0</b></p>
+///   </td>
+///  </tr>
+///  <tr>
+///   <td style="width:300px;height: 25px;border: 1px #A4A4A4 solid">
+///   <p style="text-align:center">byte 1</p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid" colspan="4">
+///   <p align="center" style="text-align:center" >MQTT Control Packet
+///   type</p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid" colspan="4">
+///   <p align="center" style="text-align:center">Flags specific to
+///   each MQTT Control Packet type</p>
+///   </td>
+///  </tr>
+///  <tr>
+///   <td style="width:300px;height: 25px;border: 1px #A4A4A4 solid">
+///   <p style="text-align:center">byte 2…</p>
+///   </td>
+///   <td style="width:300px;border: 1px #A4A4A4 solid" colspan="8">
+///   <p align="center" style="text-align:center">Remaining Length</p>
+///   </td>
+///  </tr>
+/// </tbody></table>
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FixedHeader {
     pub packet_type: PacketType,
@@ -53,5 +107,28 @@ impl Frame<FixedHeader> for FixedHeader {
 
     fn length(&self) -> usize {
         1 + write_variable_bytes(self.remaining_length, |_| {})
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::pingresp::PingResp;
+    use crate::{Frame, FixedHeader};
+    use bytes::{BufMut, BytesMut};
+
+    #[test]
+    #[rustfmt::skip]
+    fn test_fixed_header() {
+        let bytes = &[
+            0b1101_0000u8, 0, // fixed header
+        ];
+        let mut buf = BytesMut::with_capacity(64);
+        buf.put_slice(bytes);
+        let fixed_header = FixedHeader::from_buf(&mut buf).expect("Failed to parse Fixed Header");
+
+        let mut buf = BytesMut::with_capacity(64);
+        fixed_header.to_buf(&mut buf);
+        println!("{:?}", fixed_header);
+        assert_eq!(fixed_header, FixedHeader::from_buf(&mut buf).unwrap());
     }
 }
