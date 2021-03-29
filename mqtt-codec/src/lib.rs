@@ -728,6 +728,41 @@ pub enum PropertyType {
     SharedSubscriptionAvailable = 0x2A,
 }
 
+impl From<u8> for PropertyType {
+    fn from(byte: u8) -> Self {
+        match byte {
+            1 => PropertyType::PayloadFormatIndicator,
+            2 => PropertyType::MessageExpiryInterval,
+            3 => PropertyType::ContentType,
+            8 => PropertyType::ResponseTopic,
+            9 => PropertyType::CorrelationData,
+            11 => PropertyType::SubscriptionIdentifier,
+            17 => PropertyType::SessionExpiryInterval,
+            18 => PropertyType::AssignedClientIdentifier,
+            19 => PropertyType::ServerKeepAlive,
+            21 => PropertyType::AuthenticationMethod,
+            22 => PropertyType::AuthenticationData,
+            23 => PropertyType::RequestProblemInformation,
+            24 => PropertyType::WillDelayInterval,
+            25 => PropertyType::RequestResponseInformation,
+            26 => PropertyType::ResponseInformation,
+            28 => PropertyType::ServerReference,
+            31 => PropertyType::ReasonString,
+            33 => PropertyType::ReceiveMaximum,
+            34 => PropertyType::TopicAliasMaximum,
+            35 => PropertyType::TopicAlias,
+            36 => PropertyType::MaximumQos,
+            37 => PropertyType::RetainAvailable,
+            38 => PropertyType::UserProperty,
+            39 => PropertyType::MaximumPacketSize,
+            40 => PropertyType::WildcardSubscriptionAvailable,
+            41 => PropertyType::SubscriptionIdentifierAvailable,
+            42 => PropertyType::SharedSubscriptionAvailable,
+            _ => unimplemented!("no other property type support")
+        }
+    }
+}
+
 impl FromToU8<PropertyType> for PropertyType {
     fn to_u8(&self) -> u8 {
         match *self {
