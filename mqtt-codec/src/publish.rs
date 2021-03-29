@@ -135,17 +135,6 @@ pub enum Qos {
     Reserved = 3,
 }
 
-impl From<u8> for Qos {
-    fn from(byte: u8) -> Self {
-        match byte {
-            0 => Qos::AtMostOnce,
-            1 => Qos::AtLeastOnce,
-            2 => Qos::ExactlyOnce,
-            _ => unimplemented!("no other qos supported"),
-        }
-    }
-}
-
 impl Default for Qos {
     fn default() -> Self {
         Qos::AtMostOnce
