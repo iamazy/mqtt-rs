@@ -9,3 +9,7 @@ edition = "2018"
 [dependencies]
 nom = "6.1.2"
 mqtt-codec = { path = "../mqtt-codec"}
+
+
+[dev-dependencies]
+bytes = "0.5"
