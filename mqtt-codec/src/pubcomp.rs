@@ -3,6 +3,7 @@ use crate::packet::{PacketCodec, PacketId, PacketType};
 use crate::publish::Qos;
 use crate::{Error, Frame, FromToU8, Mqtt5Property};
 use bytes::{Buf, BufMut, BytesMut};
+use crate::pubcomp::PubCompReasonCode::{Success, PacketIdentifierNotFound};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubComp {
@@ -128,6 +129,16 @@ pub enum PubCompReasonCode {
     /// 146[0x92], The Packet Identifier is not known. This is not an error during recovery,
     /// but at other times indicates a mismatch between the Session State on the Client and Server.
     PacketIdentifierNotFound,
+}
+
+impl From<u8> for PubCompReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => Success,
+            146 => PacketIdentifierNotFound,
+            _ => unimplemented!("no other PubCompReasonCode support")
+        }
+    }
 }
 
 impl Default for PubCompReasonCode {
