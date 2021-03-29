@@ -3,7 +3,7 @@ extern crate nom;
 
 use nom::error::{ErrorKind, VerboseError, context};
 use nom::Err as NomErr;
-use mqtt_codec::{FixedHeader, PacketType, Qos, PingResp, PingReq};
+use mqtt_codec::{FixedHeader, PacketType, Qos, PingResp, PingReq, Mqtt5Property};
 use nom::sequence::{tuple, pair};
 use nom::number::complete::be_u8;
 use crate::bytes::read_variable_bytes;
@@ -32,7 +32,7 @@ pub fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
         })
 }
 
-pub fn pingresp(input: &[u8]) -> Res<&[u8], PingResp> {
+pub fn ping_resp(input: &[u8]) -> Res<&[u8], PingResp> {
     context(
         "pingresp",
         fixed_header,
@@ -42,7 +42,7 @@ pub fn pingresp(input: &[u8]) -> Res<&[u8], PingResp> {
         })
 }
 
-pub fn pingreq(input: &[u8]) -> Res<&[u8], PingReq> {
+pub fn ping_req(input: &[u8]) -> Res<&[u8], PingReq> {
     context(
         "pingresp",
         fixed_header,
