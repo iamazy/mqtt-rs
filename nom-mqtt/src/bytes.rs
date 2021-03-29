@@ -3,8 +3,9 @@ use nom::bytes::complete::take;
 use nom::{Err as NomErr, InputTakeAtPosition};
 use nom::error::{context, ErrorKind};
 use nom::sequence::pair;
-use nom::multi::fold_many_m_n;
-
+use nom::multi::{fold_many_m_n, length_value};
+use nom::number::complete::be_u16;
+use nom::combinator::success;
 
 fn is_variable_bytes_end<T>(i: T) -> Res<T, T>
     where
@@ -34,9 +35,13 @@ pub fn read_variable_bytes(input: &[u8]) -> Res<&[u8], (usize, usize)> {
         })
 }
 
+named!(read_string<&[u8], &[u8]>, length_data!(be_u16));
+
 #[cfg(test)]
 mod test_bytes {
-    use crate::bytes::read_variable_bytes;
+    use crate::bytes::{read_variable_bytes, read_string};
+    use bytes::BytesMut;
+    use mqtt_codec::write_string;
 
     #[test]
     fn test_read_variable_bytes() {
@@ -44,5 +49,15 @@ mod test_bytes {
         let variable_bytes = read_variable_bytes(bytes);
         println!("{:?}", variable_bytes);
 
+    }
+
+    #[test]
+    fn test_read_string() {
+        // let mut buf = BytesMut::with_capacity(64);
+        // write_string("iamazy".to_string(), &mut buf);
+        // println!("{:?}", buf.to_vec());
+        let bytes = &[0, 6, 105, 97, 109, 97, 122, 121];
+        let variable_bytes = read_string(bytes);
+        assert_eq!(variable_bytes, Ok((&vec![][..], "iamazy".as_bytes())));
     }
 }
