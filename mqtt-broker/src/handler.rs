@@ -1,6 +1,8 @@
 use crate::channel::Channel;
 use bytes::Bytes;
-use mqtt_core::codec::{ConnAck, Connect, Disconnect, Packet, PacketType, PingResp, Protocol, DisconnectReasonCode};
+use mqtt_core::codec::{
+    ConnAck, Connect, Disconnect, DisconnectReasonCode, Packet, PacketType, PingResp, Protocol,
+};
 use mqtt_core::Result;
 use mqtt_core::Shutdown;
 use std::borrow::Borrow;

@@ -324,6 +324,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let length = buf.get_u16() as usize;
                     prop_len += length;
+                    prop_len += 2;
                     let mut data = buf.split_to(length);
                     property
                         .properties
@@ -413,6 +414,7 @@ impl Frame<Mqtt5Property> for Mqtt5Property {
                     }
                     let length = buf.get_u16() as usize;
                     prop_len += length;
+                    prop_len += 2;
                     let mut data = buf.split_to(length);
                     property
                         .properties
@@ -758,7 +760,7 @@ impl From<u8> for PropertyType {
             40 => PropertyType::WildcardSubscriptionAvailable,
             41 => PropertyType::SubscriptionIdentifierAvailable,
             42 => PropertyType::SharedSubscriptionAvailable,
-            _ => unimplemented!("no other property type support")
+            _ => unimplemented!("no other property type support"),
         }
     }
 }

@@ -113,7 +113,7 @@ impl Frame<FixedHeader> for FixedHeader {
 #[cfg(test)]
 mod test {
     use crate::pingresp::PingResp;
-    use crate::{Frame, FixedHeader};
+    use crate::{FixedHeader, Frame};
     use bytes::{BufMut, BytesMut};
 
     #[test]
