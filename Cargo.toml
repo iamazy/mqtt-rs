@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-  "mqtt-codec",
   "mqtt-broker",
   "mqtt-client",
   "mqtt-core",
