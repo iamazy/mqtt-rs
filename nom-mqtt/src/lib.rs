@@ -3,9 +3,9 @@ extern crate nom;
 
 use nom::error::{ErrorKind, VerboseError, context};
 use nom::Err as NomErr;
-use mqtt_codec::{FixedHeader, PacketType, Qos, PingResp, PingReq, Mqtt5Property};
+use mqtt_codec::{FixedHeader, PacketType, Qos, PingResp, PingReq, Mqtt5Property, PropertyValue};
 use nom::sequence::{tuple, pair};
-use nom::number::complete::be_u8;
+use nom::number::complete::{be_u8, be_u32};
 use crate::bytes::read_variable_bytes;
 
 type IResult<I, O, E = (I, ErrorKind)> = Result<(I, O), NomErr<E>>;
@@ -52,12 +52,24 @@ pub fn ping_req(input: &[u8]) -> Res<&[u8], PingReq> {
         })
 }
 
+named_args!(property_value<&[u8], PropertyValue, VerboseError>,
+    switch!(read_variable_bytes,
+        (0x01, _) => do_parse!(
+            bit: be_u8 >>
+            (PropertyValue::Bit(bit & 0x01 == 1))
+        ) |
+        (0x02, _) => do_parse!(
+            bytes: be_u32 >>
+            (PropertyValue::FourByteInteger(bytes))
+        )
+    )
+);
 
 #[cfg(test)]
 mod tests_mqtt {
     use mqtt_codec::{FixedHeader, PacketType, Qos, Frame};
     use bytes::BytesMut;
-    use crate::fixed_header;
+    use crate::{fixed_header, property_value};
 
     #[test]
     fn test_fixed_header() {
@@ -80,5 +92,12 @@ mod tests_mqtt {
                 eprintln!("{}", e.to_string());
             }
         }
+    }
+
+    #[test]
+    fn test_property_value() {
+        let vec = &[1u8];
+        let res = property_value(vec);
+        println!("{:?}", res);
     }
 }
