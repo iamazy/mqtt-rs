@@ -36,9 +36,7 @@ pub fn read_variable_bytes(input: &[u8]) -> Res<&[u8], (usize, usize)> {
         })
 }
 
-/// equal to named!(read_string<&[u8], &[u8]>, length_data!(be_u16));
-///
-///
+/// equal to named!(read_string<&[u8], &str>, length_data!(be_u16));
 pub fn read_string(input: &[u8]) -> Res<&[u8], &str> {
     context(
         "read string",
