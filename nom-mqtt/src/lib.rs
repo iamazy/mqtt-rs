@@ -52,7 +52,7 @@ pub fn ping_req(input: &[u8]) -> Res<&[u8], PingReq> {
         })
 }
 
-named_args!(property_value<&[u8], PropertyValue, VerboseError>,
+named!(property_value<&[u8], PropertyValue, VerboseError>,
     switch!(read_variable_bytes,
         (0x01, _) => do_parse!(
             bit: be_u8 >>
