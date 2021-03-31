@@ -1,13 +1,12 @@
 mod url {
-    use nom::error::{ErrorKind, VerboseError, context, VerboseErrorKind};
-    use nom::{Err as NomErr, InputTakeAtPosition, AsChar, Parser};
-    use nom::bytes::complete::{tag_no_case, tag, take};
-    use nom::sequence::{terminated, separated_pair, tuple};
-    use nom::character::complete::{alphanumeric1, alpha1, one_of};
-    use nom::combinator::opt;
-    use nom::multi::{many1, many_m_n, count, many0};
     use nom::branch::alt;
-
+    use nom::bytes::complete::{tag, tag_no_case, take};
+    use nom::character::complete::{alpha1, alphanumeric1, one_of};
+    use nom::combinator::opt;
+    use nom::error::{context, ErrorKind, VerboseError, VerboseErrorKind};
+    use nom::multi::{count, many0, many1, many_m_n};
+    use nom::sequence::{separated_pair, terminated, tuple};
+    use nom::{AsChar, Err as NomErr, InputTakeAtPosition};
 
     #[derive(Debug, PartialEq, Eq)]
     pub struct URI<'a> {
@@ -51,10 +50,11 @@ mod url {
     }
 
     fn scheme(input: &str) -> Res<&str, Scheme> {
-        context("scheme",
-                alt((tag_no_case("HTTP://"), tag_no_case("HTTPS://"))))
-            (input)
-            .map(|(next_input, res)| (next_input, res.into()))
+        context(
+            "scheme",
+            alt((tag_no_case("HTTP://"), tag_no_case("HTTPS://"))),
+        )(input)
+        .map(|(next_input, res)| (next_input, res.into()))
     }
 
     fn authority(input: &str) -> Res<&str, (&str, Option<&str>)> {
@@ -68,9 +68,9 @@ mod url {
     }
 
     fn alphanumerichyphen1<T>(i: T) -> Res<T, T>
-        where
-            T: InputTakeAtPosition,
-            <T as InputTakeAtPosition>::Item: AsChar
+    where
+        T: InputTakeAtPosition,
+        <T as InputTakeAtPosition>::Item: AsChar,
     {
         i.split_at_position1_complete(
             |item| {
@@ -86,22 +86,23 @@ mod url {
             "host",
             alt((
                 tuple((many1(terminated(alphanumerichyphen1, tag("."))), alpha1)),
-                tuple((many_m_n(1, 1, alphanumerichyphen1), take(0usize)))
-            )))(input)
-            .map(|(next_input, mut res)| {
-                if !res.1.is_empty() {
-                    res.0.push(res.1);
-                }
+                tuple((many_m_n(1, 1, alphanumerichyphen1), take(0usize))),
+            )),
+        )(input)
+        .map(|(next_input, mut res)| {
+            if !res.1.is_empty() {
+                res.0.push(res.1);
+            }
 
-                (next_input, Host::HOST(res.0.join(".")))
-            })
+            (next_input, Host::HOST(res.0.join(".")))
+        })
     }
 
     fn ip_num(input: &str) -> Res<&str, u8> {
         context("ip number", n_to_m_digits(1, 3))(input).and_then(|(next_input, result)| {
             match result.parse::<u8>() {
                 Ok(n) => Ok((next_input, n)),
-                Err(_) => Err(NomErr::Error(VerboseError { errors: vec![] }))
+                Err(_) => Err(NomErr::Error(VerboseError { errors: vec![] })),
             }
         })
     }
@@ -114,17 +115,19 @@ mod url {
     }
 
     fn ip(input: &str) -> Res<&str, Host> {
-        context("ip", tuple((count(terminated(ip_num, tag(".")), 3), ip_num)))
-            (input)
-            .map(|(next_input, res)| {
-                let mut result: [u8; 4] = [0; 4];
-                res.0
-                    .into_iter()
-                    .enumerate()
-                    .for_each(|(i, v)| result[i] = v);
-                result[3] = res.1;
-                (next_input, Host::IP(result))
-            })
+        context(
+            "ip",
+            tuple((count(terminated(ip_num, tag(".")), 3), ip_num)),
+        )(input)
+        .map(|(next_input, res)| {
+            let mut result: [u8; 4] = [0; 4];
+            res.0
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, v)| result[i] = v);
+            result[3] = res.1;
+            (next_input, Host::IP(result))
+        })
     }
 
     fn ip_or_host(input: &str) -> Res<&str, Host> {
@@ -132,26 +135,23 @@ mod url {
     }
 
     fn port(input: &str) -> Res<&str, u16> {
-        context(
-            "port",
-            tuple((
-                tag(":"),
-                n_to_m_digits(1, 5)
-            )),
-        )(input)
-            .and_then(|(next_input, result)| {
+        context("port", tuple((tag(":"), n_to_m_digits(1, 5))))(input).and_then(
+            |(next_input, result)| {
                 let port = result.1.parse::<u16>();
                 match port {
                     Ok(port) => Ok((next_input, port)),
-                    Err(e) => Err(NomErr::Error(VerboseError { errors: vec![(input, VerboseErrorKind::Nom(ErrorKind::Digit))] }))
+                    Err(_) => Err(NomErr::Error(VerboseError {
+                        errors: vec![(input, VerboseErrorKind::Nom(ErrorKind::Digit))],
+                    })),
                 }
-            })
+            },
+        )
     }
 
     fn url_code_points<T>(i: T) -> Res<T, T>
-        where
-            T: InputTakeAtPosition,
-            <T as InputTakeAtPosition>::Item: AsChar
+    where
+        T: InputTakeAtPosition,
+        <T as InputTakeAtPosition>::Item: AsChar,
     {
         i.split_at_position1_complete(
             |item| {
@@ -168,16 +168,16 @@ mod url {
             tuple((
                 tag("/"),
                 many0(terminated(url_code_points, tag("/"))),
-                opt(url_code_points)
+                opt(url_code_points),
             )),
         )(input)
-            .map(|(next_input, res)| {
-                let mut path: Vec<&str> = res.1.iter().map(|p| p.to_owned()).collect();
-                if let Some(last) = res.2 {
-                    path.push(last);
-                }
-                (next_input, path)
-            })
+        .map(|(next_input, res)| {
+            let mut path: Vec<&str> = res.1.iter().map(|p| p.to_owned()).collect();
+            if let Some(last) = res.2 {
+                path.push(last);
+            }
+            (next_input, path)
+        })
     }
 
     fn query_params(input: &str) -> Res<&str, QueryParams> {
@@ -192,18 +192,18 @@ mod url {
                     tag("&"),
                     url_code_points,
                     tag("="),
-                    url_code_points
-                )))
+                    url_code_points,
+                ))),
             )),
         )(input)
-            .map(|(next_input, res)| {
-                let mut qps = Vec::new();
-                qps.push((res.1, res.3));
-                for qp in res.4 {
-                    qps.push((qp.1, qp.3));
-                }
-                (next_input, qps)
-            })
+        .map(|(next_input, res)| {
+            let mut qps = Vec::new();
+            qps.push((res.1, res.3));
+            for qp in res.4 {
+                qps.push((qp.1, qp.3));
+            }
+            (next_input, qps)
+        })
     }
 
     fn fragment(input: &str) -> Res<&str, &str> {
@@ -221,30 +221,32 @@ mod url {
                 opt(port),
                 opt(path),
                 opt(query_params),
-                opt(fragment)
+                opt(fragment),
             )),
         )(input)
-            .map(|(next_input, res)| {
-                let (scheme, authority, host, port, path, query, fragment) = res;
-                (
-                    next_input,
-                    URI {
-                        scheme,
-                        authority,
-                        host,
-                        port,
-                        path,
-                        query,
-                        fragment,
-                    }
-                )
-            })
+        .map(|(next_input, res)| {
+            let (scheme, authority, host, port, path, query, fragment) = res;
+            (
+                next_input,
+                URI {
+                    scheme,
+                    authority,
+                    host,
+                    port,
+                    path,
+                    query,
+                    fragment,
+                },
+            )
+        })
     }
 
     mod tests {
-        use crate::tests::url::{scheme, Scheme, authority, host, Host, ip, path, query_params, fragment, port, URI, uri};
+        use crate::tests::url::{
+            authority, fragment, host, ip, path, port, query_params, scheme, uri, Host, Scheme, URI,
+        };
+        use nom::error::{ErrorKind, VerboseError, VerboseErrorKind};
         use nom::Err as NomErr;
-        use nom::error::{VerboseError, VerboseErrorKind, ErrorKind};
 
         #[test]
         fn test_scheme() {
@@ -285,7 +287,10 @@ mod url {
                 authority(":zupzup.org"),
                 Err(NomErr::Error(VerboseError {
                     errors: vec![
-                        (":zupzup.org", VerboseErrorKind::Nom(ErrorKind::AlphaNumeric)),
+                        (
+                            ":zupzup.org",
+                            VerboseErrorKind::Nom(ErrorKind::AlphaNumeric)
+                        ),
                         (":zupzup.org", VerboseErrorKind::Context("authority"))
                     ]
                 }))
@@ -295,7 +300,10 @@ mod url {
                 Err(NomErr::Error(VerboseError {
                     errors: vec![
                         (".org", VerboseErrorKind::Nom(ErrorKind::Tag)),
-                        ("username:passwordzupzup.org", VerboseErrorKind::Context("authority"))
+                        (
+                            "username:passwordzupzup.org",
+                            VerboseErrorKind::Context("authority")
+                        )
                     ]
                 }))
             );
@@ -303,7 +311,10 @@ mod url {
                 authority("@zupzup.org"),
                 Err(NomErr::Error(VerboseError {
                     errors: vec![
-                        ("@zupzup.org", VerboseErrorKind::Nom(ErrorKind::AlphaNumeric)),
+                        (
+                            "@zupzup.org",
+                            VerboseErrorKind::Nom(ErrorKind::AlphaNumeric)
+                        ),
                         ("@zupzup.org", VerboseErrorKind::Context("authority"))
                     ]
                 }))
@@ -358,10 +369,7 @@ mod url {
                 ip("192.168.0.1:8080"),
                 Ok((":8080", Host::IP([192, 168, 0, 1])))
             );
-            assert_eq!(
-                ip("0.0.0.0:8080"),
-                Ok((":8080", Host::IP([0, 0, 0, 0])))
-            );
+            assert_eq!(ip("0.0.0.0:8080"), Ok((":8080", Host::IP([0, 0, 0, 0]))));
             assert_eq!(
                 ip("1924.168.0.1:8080"),
                 Err(NomErr::Error(VerboseError {
@@ -377,7 +385,10 @@ mod url {
                 Err(NomErr::Error(VerboseError {
                     errors: vec![
                         ("0.144:8080", VerboseErrorKind::Nom(ErrorKind::Tag)),
-                        ("192.168.0000.144:8080", VerboseErrorKind::Nom(ErrorKind::Count)),
+                        (
+                            "192.168.0000.144:8080",
+                            VerboseErrorKind::Nom(ErrorKind::Count)
+                        ),
                         ("192.168.0000.144:8080", VerboseErrorKind::Context("ip"))
                     ]
                 }))
@@ -414,10 +425,9 @@ mod url {
             assert_eq!(
                 port(":65536"),
                 Err(NomErr::Error(VerboseError {
-                    errors: vec![
-                        (":65536", VerboseErrorKind::Nom(ErrorKind::Digit))
-                    ]
-                })));
+                    errors: vec![(":65536", VerboseErrorKind::Nom(ErrorKind::Digit))]
+                }))
+            );
             assert_eq!(
                 port(":a"),
                 Err(NomErr::Error(VerboseError {
@@ -426,7 +436,8 @@ mod url {
                         ("a", VerboseErrorKind::Nom(ErrorKind::ManyMN)),
                         (":a", VerboseErrorKind::Context("port"))
                     ]
-                })));
+                }))
+            );
         }
 
         #[test]
@@ -435,7 +446,10 @@ mod url {
             assert_eq!(path("/a/b/c/?d"), Ok(("?d", vec!["a", "b", "c"])));
             assert_eq!(path("/a/b-c-d/c/?d"), Ok(("?d", vec!["a", "b-c-d", "c"])));
             assert_eq!(path("/a/1234/c/?d"), Ok(("?d", vec!["a", "1234", "c"])));
-            assert_eq!(path("/a/1234/c.txt?d"), Ok(("?d", vec!["a", "1234", "c.txt"])));
+            assert_eq!(
+                path("/a/1234/c.txt?d"),
+                Ok(("?d", vec!["a", "1234", "c.txt"]))
+            );
         }
 
         #[test]
