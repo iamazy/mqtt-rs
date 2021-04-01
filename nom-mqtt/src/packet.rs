@@ -84,8 +84,8 @@ pub struct Publish<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PublishVariableHeader<'a> {
-    pub topic_name: String,
-    pub packet_id: PacketId,
+    pub topic_name: &'a str,
+    pub packet_id: u16,
     pub publish_property: Mqtt5Property<'a>,
 }
 
@@ -97,9 +97,9 @@ pub struct PubAck<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubAckVariableHeader<'a> {
-    packet_id: PacketId,
-    puback_reason_code: PubAckReasonCode,
-    puback_property: Mqtt5Property<'a>,
+    pub packet_id: u16,
+    pub puback_reason_code: PubAckReasonCode,
+    pub puback_property: Mqtt5Property<'a>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -110,7 +110,7 @@ pub struct PubRec<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRecVariableHeader<'a> {
-    pub packet_id: PacketId,
+    pub packet_id: u16,
     pub pubrec_reason_code: PubRecReasonCode,
     pub pubrec_property: Mqtt5Property<'a>,
 }
@@ -123,7 +123,7 @@ pub struct PubRel<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubRelVariableHeader<'a> {
-    pub packet_id: PacketId,
+    pub packet_id: u16,
     pub pubrel_reason_code: PubRelReasonCode,
     pub pubrel_property: Mqtt5Property<'a>,
 }
@@ -136,7 +136,7 @@ pub struct PubComp<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PubCompVariableHeader<'a> {
-    pub packet_id: PacketId,
+    pub packet_id: u16,
     pub pubcomp_reason_code: PubCompReasonCode,
     pub pubcomp_property: Mqtt5Property<'a>,
 }
@@ -146,21 +146,21 @@ pub struct Subscribe<'a> {
     pub fixed_header: FixedHeader,
     pub variable_header: SubscribeVariableHeader<'a>,
     // (topic filter, subscription options)
-    pub payload: Vec<(String, SubscriptionOptions)>,
+    pub payload: Vec<(&'a str, SubscriptionOptions)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscribeVariableHeader<'a> {
-    packet_id: PacketId,
-    subscribe_property: Mqtt5Property<'a>,
+    pub packet_id: u16,
+    pub subscribe_property: Mqtt5Property<'a>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscriptionOptions {
-    maximum_qos: Qos,
-    no_local: bool,
-    retain_as_published: bool,
-    retain_handling: u8,
+    pub maximum_qos: Qos,
+    pub no_local: bool,
+    pub retain_as_published: bool,
+    pub retain_handling: u8,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,7 +172,7 @@ pub struct SubAck<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubAckVariableHeader<'a> {
-    pub packet_id: PacketId,
+    pub packet_id: u16,
     pub suback_property: Mqtt5Property<'a>,
 }
 
@@ -185,7 +185,7 @@ pub struct UnSubscribe<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubscribeVariableHeader<'a> {
-    pub packet_id: PacketId,
+    pub packet_id: u16,
     pub unsubscribe_property: Mqtt5Property<'a>,
 }
 
@@ -198,8 +198,8 @@ pub struct UnSubAck<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnSubAckVariableHeader<'a> {
-    packet_id: PacketId,
-    unsuback_property: Mqtt5Property<'a>,
+    pub packet_id: u16,
+    pub unsuback_property: Mqtt5Property<'a>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -220,7 +220,7 @@ pub struct Disconnect<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisconnectVariableHeader<'a> {
-    pub reason_code: DisconnectReasonCode,
+    pub disconnect_reason_code: DisconnectReasonCode,
     pub disconnect_property: Mqtt5Property<'a>,
 }
 
@@ -232,7 +232,7 @@ pub struct Auth<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthVariableHeader<'a> {
-    pub reason_code: AuthenticateReasonCode,
+    pub auth_reason_code: AuthenticateReasonCode,
     pub auth_property: Mqtt5Property<'a>,
 }
 
@@ -263,7 +263,7 @@ pub struct ConnectFlags {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConnectPayload<'a> {
-    pub client_id: String,
+    pub client_id: &'a str,
     pub will_property: Option<Mqtt5Property<'a>>,
     pub will_topic: Option<&'a str>,
     pub will_payload: Option<&'a [u8]>,
@@ -427,9 +427,6 @@ pub enum PropertyValue<'a> {
     StringPair(&'a str, &'a str),
     Multiple(Vec<PropertyValue<'a>>),
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PacketId(NonZeroU16);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Packet<'a> {
