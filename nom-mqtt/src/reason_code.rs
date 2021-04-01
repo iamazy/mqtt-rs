@@ -23,6 +23,23 @@ pub enum PubAckReasonCode {
     PayloadFormatInvalid = 0x99,
 }
 
+impl From<u8> for PubAckReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => PubAckReasonCode::Success,
+            16 => PubAckReasonCode::NoMatchingSubscribers,
+            128 => PubAckReasonCode::UnspecifiedError,
+            131 => PubAckReasonCode::ImplementationSpecificError,
+            135 => PubAckReasonCode::NotAuthorized,
+            144 => PubAckReasonCode::TopicNameInvalid,
+            145 => PubAckReasonCode::PacketIdentifierInUse,
+            151 => PubAckReasonCode::QuotaExceeded,
+            153 => PubAckReasonCode::PayloadFormatInvalid,
+            _ => unimplemented!("no other puback reason code support"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRecReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
@@ -48,6 +65,23 @@ pub enum PubRecReasonCode {
     PayloadFormatInvalid = 0x99,
 }
 
+impl From<u8> for PubRecReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => PubRecReasonCode::Success,
+            16 => PubRecReasonCode::NoMatchingSubscribers,
+            128 => PubRecReasonCode::UnspecifiedError,
+            131 => PubRecReasonCode::ImplementationSpecificError,
+            135 => PubRecReasonCode::NotAuthorized,
+            144 => PubRecReasonCode::TopicNameInvalid,
+            145 => PubRecReasonCode::PacketIdentifierInUse,
+            151 => PubRecReasonCode::QuotaExceeded,
+            153 => PubRecReasonCode::PayloadFormatInvalid,
+            _ => unimplemented!("no other pubrec reason code support"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubRelReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
@@ -57,6 +91,16 @@ pub enum PubRelReasonCode {
     PacketIdentifierNotFound = 0x92,
 }
 
+impl From<u8> for PubRelReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => PubRelReasonCode::Success,
+            146 => PubRelReasonCode::PacketIdentifierNotFound,
+            _ => unimplemented!("no other pubrel reason code support"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PubCompReasonCode {
     /// 0[0x00], The message is accepted. Publication of the QoS 2 message proceeds
@@ -64,6 +108,16 @@ pub enum PubCompReasonCode {
     /// 146[0x92], The Packet Identifier is not known. This is not an error during recovery,
     /// but at other times indicates a mismatch between the Session State on the Client and Server.
     PacketIdentifierNotFound = 0x92,
+}
+
+impl From<u8> for PubCompReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => PubCompReasonCode::Success,
+            146 => PubCompReasonCode::PacketIdentifierNotFound,
+            _ => unimplemented!("no other pubcomp reason code support"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -97,6 +151,26 @@ pub enum SubscribeReasonCode {
     WildcardSubscriptionNotSupported = 0xA2,
 }
 
+impl From<u8> for SubscribeReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => SubscribeReasonCode::GrantedQos0,
+            1 => SubscribeReasonCode::GrantedQos1,
+            2 => SubscribeReasonCode::GrantedQos2,
+            128 => SubscribeReasonCode::UnspecifiedError,
+            131 => SubscribeReasonCode::ImplementationSpecificError,
+            135 => SubscribeReasonCode::NotAuthorized,
+            143 => SubscribeReasonCode::TopicFilterInvalid,
+            145 => SubscribeReasonCode::PacketIdentifierInUse,
+            151 => SubscribeReasonCode::QuotaExceeded,
+            158 => SubscribeReasonCode::SharedSubscriptionNotSupported,
+            161 => SubscribeReasonCode::SubscriptionIdentifierNotSupported,
+            162 => SubscribeReasonCode::WildcardSubscriptionNotSupported,
+            _ => unimplemented!("no other subscribe reason code support"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum UnSubscribeReasonCode {
     /// 0[0x00], The subscription is deleted.
@@ -114,6 +188,21 @@ pub enum UnSubscribeReasonCode {
     TopicFilterInValid = 0x8F,
     /// 145[0x91], The specified Packet Identifier is already in use.
     PacketIdentifierInUse = 0x91,
+}
+
+impl From<u8> for UnSubscribeReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => UnSubscribeReasonCode::Success,
+            17 => UnSubscribeReasonCode::NoSubscriptionFound,
+            128 => UnSubscribeReasonCode::UnspecifiedError,
+            131 => UnSubscribeReasonCode::ImplementationSpecificError,
+            135 => UnSubscribeReasonCode::NotAuthorized,
+            143 => UnSubscribeReasonCode::TopicFilterInValid,
+            145 => UnSubscribeReasonCode::PacketIdentifierInUse,
+            _ => unimplemented!("no other unsubscribe reason code support"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -178,6 +267,43 @@ pub enum DisconnectReasonCode {
     WildcardSubscriptionsNotSupported = 0xA2,
 }
 
+impl From<u8> for DisconnectReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => DisconnectReasonCode::NormalDisconnection,
+            4 => DisconnectReasonCode::DisconnectWithWillMessage,
+            128 => DisconnectReasonCode::UnspecifiedError,
+            129 => DisconnectReasonCode::MalformedPacket,
+            130 => DisconnectReasonCode::ProtocolError,
+            131 => DisconnectReasonCode::ImplementationSpecificError,
+            135 => DisconnectReasonCode::NotAuthorized,
+            137 => DisconnectReasonCode::ServerBusy,
+            139 => DisconnectReasonCode::ServerShuttingDown,
+            141 => DisconnectReasonCode::KeepAliveTimeout,
+            142 => DisconnectReasonCode::SessionTakenOver,
+            143 => DisconnectReasonCode::TopicFilterInvalid,
+            144 => DisconnectReasonCode::TopicNameInvalid,
+            147 => DisconnectReasonCode::ReceiveMaximumExceeded,
+            148 => DisconnectReasonCode::TopicAliasInvalid,
+            149 => DisconnectReasonCode::PacketTooLarge,
+            150 => DisconnectReasonCode::MessageRateTooHigh,
+            151 => DisconnectReasonCode::QuotaExceeded,
+            152 => DisconnectReasonCode::AdministrativeAction,
+            153 => DisconnectReasonCode::PayloadFormatInvalid,
+            154 => DisconnectReasonCode::RetainNotSupported,
+            155 => DisconnectReasonCode::QosNotSupported,
+            156 => DisconnectReasonCode::UseAnotherServer,
+            157 => DisconnectReasonCode::ServerMoved,
+            158 => DisconnectReasonCode::SharedSubscriptionNotSupported,
+            159 => DisconnectReasonCode::ConnectionRateExceeded,
+            160 => DisconnectReasonCode::MaximumConnectTime,
+            161 => DisconnectReasonCode::SubscriptionIdentifiersNotSupported,
+            162 => DisconnectReasonCode::WildcardSubscriptionsNotSupported,
+            _ => unimplemented!("no other disconnect reason code support"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AuthenticateReasonCode {
     /// 0[0x00], Authentication is successful
@@ -186,6 +312,17 @@ pub enum AuthenticateReasonCode {
     ContinueAuthentication = 0x18,
     /// 25[0x19], Initiate a re-authentication
     ReAuthenticate = 0x19,
+}
+
+impl From<u8> for AuthenticateReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => AuthenticateReasonCode::Success,
+            24 => AuthenticateReasonCode::ContinueAuthentication,
+            25 => AuthenticateReasonCode::ReAuthenticate,
+            _ => unimplemented!("no other authenticate reason code support"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -235,4 +372,34 @@ pub enum ConnectReasonCode {
     ServerMoved = 0x9D,
     /// 159[0x9F], The connection rate limit has been exceeded
     ConnectionRateExceeded = 0x9F,
+}
+
+impl From<u8> for ConnectReasonCode {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => ConnectReasonCode::Success,
+            128 => ConnectReasonCode::UnspecifiedError,
+            129 => ConnectReasonCode::MalformedPacket,
+            130 => ConnectReasonCode::ProtocolError,
+            131 => ConnectReasonCode::ImplementationSpecificError,
+            132 => ConnectReasonCode::UnsupportedProtocolVersion,
+            133 => ConnectReasonCode::ClientIdentifierNotValid,
+            134 => ConnectReasonCode::BadUsernameOrPassword,
+            135 => ConnectReasonCode::NotAuthorized,
+            136 => ConnectReasonCode::ServerUnavailable,
+            137 => ConnectReasonCode::ServerBusy,
+            138 => ConnectReasonCode::Banned,
+            140 => ConnectReasonCode::BadAuthenticationMethod,
+            144 => ConnectReasonCode::TopicNameInvalid,
+            149 => ConnectReasonCode::PacketTooLarge,
+            151 => ConnectReasonCode::QuotaExceeded,
+            153 => ConnectReasonCode::PayloadFormatInvalid,
+            154 => ConnectReasonCode::RetainNotSupported,
+            155 => ConnectReasonCode::QoSNotSupported,
+            156 => ConnectReasonCode::UseAnotherServer,
+            157 => ConnectReasonCode::ServerMoved,
+            159 => ConnectReasonCode::ConnectionRateExceeded,
+            _ => unimplemented!("no other connect reason code support"),
+        }
+    }
 }
