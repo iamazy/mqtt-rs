@@ -6,13 +6,15 @@ use crate::bytes::{read_bytes, read_string, read_variable_bytes};
 use crate::packet::{
     Auth, AuthVariableHeader, ConnAck, ConnAckFlags, ConnAckVariableHeader, Connect, ConnectFlags,
     ConnectPayload, ConnectVariableHeader, Disconnect, DisconnectVariableHeader, FixedHeader,
-    Mqtt5Property, PacketType, PingReq, PingResp, PropertyValue, Protocol, PubAck,
+    Mqtt5Property, Packet, PacketType, PingReq, PingResp, PropertyValue, Protocol, PubAck,
     PubAckVariableHeader, PubComp, PubCompVariableHeader, PubRec, PubRecVariableHeader, PubRel,
     PubRelVariableHeader, Publish, PublishVariableHeader, Qos, SubAck, SubAckVariableHeader,
     Subscribe, SubscribeVariableHeader, SubscriptionOptions, UnSubAck, UnSubAckVariableHeader,
     UnSubscribe, UnSubscribeVariableHeader,
 };
+use nom::branch::alt;
 use nom::bytes::complete::take;
+use nom::combinator::all_consuming;
 use nom::error::{context, ErrorKind, VerboseError};
 use nom::number::complete::{be_u16, be_u32, be_u8};
 use nom::sequence::{pair, tuple};
@@ -31,15 +33,35 @@ pub mod reason_code;
 #[cfg(test)]
 mod tests;
 
-pub fn auth(input: &[u8]) -> Res<&[u8], Auth> {
+pub fn parse(input: &[u8]) -> Res<&[u8], Packet> {
+    all_consuming(alt((
+        connect,
+        connack,
+        publish,
+        puback,
+        pubrec,
+        pubrel,
+        pubcomp,
+        subscribe,
+        suback,
+        unsubscribe,
+        unsuback,
+        ping_req,
+        ping_resp,
+        disconnect,
+        auth,
+    )))(input)
+}
+
+fn auth(input: &[u8]) -> Res<&[u8], Packet> {
     context("auth", pair(fixed_header, auth_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                Auth {
+                Packet::Auth(Auth {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -59,15 +81,15 @@ fn auth_variable_header(input: &[u8]) -> Res<&[u8], AuthVariableHeader> {
     )
 }
 
-pub fn connack(input: &[u8]) -> Res<&[u8], ConnAck> {
+fn connack(input: &[u8]) -> Res<&[u8], Packet> {
     context("connack", pair(fixed_header, connack_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                ConnAck {
+                Packet::ConnAck(ConnAck {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -94,15 +116,15 @@ fn connack_variable_header(input: &[u8]) -> Res<&[u8], ConnAckVariableHeader> {
     })
 }
 
-pub fn disconnect(input: &[u8]) -> Res<&[u8], Disconnect> {
+fn disconnect(input: &[u8]) -> Res<&[u8], Packet> {
     context("disconnect", pair(fixed_header, disconnect_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                Disconnect {
+                Packet::Disconnect(Disconnect {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -122,25 +144,25 @@ fn disconnect_variable_header(input: &[u8]) -> Res<&[u8], DisconnectVariableHead
     )
 }
 
-pub fn ping_req(input: &[u8]) -> Res<&[u8], PingReq> {
+fn ping_req(input: &[u8]) -> Res<&[u8], Packet> {
     context("pingresp", fixed_header)(input)
-        .map(|(next_input, fixed_header)| (next_input, PingReq { fixed_header }))
+        .map(|(next_input, fixed_header)| (next_input, Packet::PingReq(PingReq { fixed_header })))
 }
 
-pub fn ping_resp(input: &[u8]) -> Res<&[u8], PingResp> {
+fn ping_resp(input: &[u8]) -> Res<&[u8], Packet> {
     context("pingresp", fixed_header)(input)
-        .map(|(next_input, fixed_header)| (next_input, PingResp { fixed_header }))
+        .map(|(next_input, fixed_header)| (next_input, Packet::PingResp(PingResp { fixed_header })))
 }
 
-pub fn puback(input: &[u8]) -> Res<&[u8], PubAck> {
+fn puback(input: &[u8]) -> Res<&[u8], Packet> {
     context("puback", pair(fixed_header, puback_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                PubAck {
+                Packet::PubAck(PubAck {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -163,15 +185,15 @@ fn puback_variable_header(input: &[u8]) -> Res<&[u8], PubAckVariableHeader> {
     })
 }
 
-pub fn pubcomp(input: &[u8]) -> Res<&[u8], PubComp> {
+fn pubcomp(input: &[u8]) -> Res<&[u8], Packet> {
     context("pubcomp", pair(fixed_header, pubcomp_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                PubComp {
+                Packet::PubComp(PubComp {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -194,18 +216,18 @@ fn pubcomp_variable_header(input: &[u8]) -> Res<&[u8], PubCompVariableHeader> {
     })
 }
 
-pub fn publish(input: &[u8]) -> Res<&[u8], Publish> {
+fn publish(input: &[u8]) -> Res<&[u8], Packet> {
     context("publish", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload, variable_header) = publish_variable_header(variable_header_and_payload)?;
         Ok((
             next_input,
-            Publish {
+            Packet::Publish(Publish {
                 fixed_header,
                 variable_header,
                 payload,
-            },
+            }),
         ))
     })
 }
@@ -227,15 +249,15 @@ fn publish_variable_header(input: &[u8]) -> Res<&[u8], PublishVariableHeader> {
     })
 }
 
-pub fn pubrec(input: &[u8]) -> Res<&[u8], PubRec> {
+fn pubrec(input: &[u8]) -> Res<&[u8], Packet> {
     context("pubrec", pair(fixed_header, pubrec_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                PubRec {
+                Packet::PubRec(PubRec {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -258,15 +280,15 @@ fn pubrec_variable_header(input: &[u8]) -> Res<&[u8], PubRecVariableHeader> {
     })
 }
 
-pub fn pubrel(input: &[u8]) -> Res<&[u8], PubRel> {
+fn pubrel(input: &[u8]) -> Res<&[u8], Packet> {
     context("pubrel", pair(fixed_header, pubrel_variable_header))(input).map(
         |(next_input, (fixed_header, variable_header))| {
             (
                 next_input,
-                PubRel {
+                Packet::PubRel(PubRel {
                     fixed_header,
                     variable_header,
-                },
+                }),
             )
         },
     )
@@ -289,7 +311,7 @@ fn pubrel_variable_header(input: &[u8]) -> Res<&[u8], PubRelVariableHeader> {
     })
 }
 
-pub fn suback(input: &[u8]) -> Res<&[u8], SubAck> {
+fn suback(input: &[u8]) -> Res<&[u8], Packet> {
     context("suback", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
@@ -300,11 +322,11 @@ pub fn suback(input: &[u8]) -> Res<&[u8], SubAck> {
         }
         Ok((
             next_input,
-            SubAck {
+            Packet::SubAck(SubAck {
                 fixed_header,
                 variable_header,
                 payload,
-            },
+            }),
         ))
     })
 }
@@ -323,7 +345,7 @@ fn suback_variable_header(input: &[u8]) -> Res<&[u8], SubAckVariableHeader> {
     )
 }
 
-pub fn subscribe(input: &[u8]) -> Res<&[u8], Subscribe> {
+fn subscribe(input: &[u8]) -> Res<&[u8], Packet> {
     context("subscribe", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
@@ -338,11 +360,11 @@ pub fn subscribe(input: &[u8]) -> Res<&[u8], Subscribe> {
         }
         Ok((
             next_input,
-            Subscribe {
+            Packet::Subscribe(Subscribe {
                 fixed_header,
                 variable_header,
                 payload,
-            },
+            }),
         ))
     })
 }
@@ -375,7 +397,7 @@ fn subscribe_variable_header(input: &[u8]) -> Res<&[u8], SubscribeVariableHeader
     )
 }
 
-pub fn unsuback(input: &[u8]) -> Res<&[u8], UnSubAck> {
+fn unsuback(input: &[u8]) -> Res<&[u8], Packet> {
     context("unsuback", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
@@ -387,11 +409,11 @@ pub fn unsuback(input: &[u8]) -> Res<&[u8], UnSubAck> {
         }
         Ok((
             next_input,
-            UnSubAck {
+            Packet::UnSubAck(UnSubAck {
                 fixed_header,
                 variable_header,
                 payload,
-            },
+            }),
         ))
     })
 }
@@ -410,7 +432,7 @@ fn unsuback_variable_header(input: &[u8]) -> Res<&[u8], UnSubAckVariableHeader> 
     )
 }
 
-pub fn unsubscribe(input: &[u8]) -> Res<&[u8], UnSubscribe> {
+fn unsubscribe(input: &[u8]) -> Res<&[u8], Packet> {
     context("unsubscribe", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
@@ -424,11 +446,11 @@ pub fn unsubscribe(input: &[u8]) -> Res<&[u8], UnSubscribe> {
         }
         Ok((
             next_input,
-            UnSubscribe {
+            Packet::UnSubscribe(UnSubscribe {
                 fixed_header,
                 variable_header,
                 payload,
-            },
+            }),
         ))
     })
 }
@@ -447,7 +469,7 @@ fn unsubscribe_variable_header(input: &[u8]) -> Res<&[u8], UnSubscribeVariableHe
     )
 }
 
-pub fn connect(input: &[u8]) -> Res<&[u8], Connect> {
+fn connect(input: &[u8]) -> Res<&[u8], Packet> {
     context("connect", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
@@ -478,7 +500,7 @@ pub fn connect(input: &[u8]) -> Res<&[u8], Connect> {
         assert_eq!(payload_input.len(), 0);
         Ok((
             next_input,
-            Connect {
+            Packet::Connect(Connect {
                 fixed_header,
                 variable_header,
                 payload: ConnectPayload {
@@ -489,7 +511,7 @@ pub fn connect(input: &[u8]) -> Res<&[u8], Connect> {
                     username,
                     password,
                 },
-            },
+            }),
         ))
     })
 }
@@ -539,7 +561,7 @@ fn protocol(input: &[u8]) -> Res<&[u8], Protocol> {
     })
 }
 
-pub fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
+fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
     context("fixed header", pair(be_u8, read_variable_bytes))(input).map(|(next_input, res)| {
         let (fixed_header_byte, (remaining_length, _)) = res;
         (
@@ -555,7 +577,7 @@ pub fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
     })
 }
 
-pub fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
+fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
     context("mqtt5 property", read_variable_bytes)(input).and_then(
         |(input, (property_length, _))| {
             let mut property = Mqtt5Property {
@@ -619,7 +641,7 @@ pub fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
 ///     )
 /// );
 /// ```
-pub fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
+fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
     // Although the Property Identifier is defined as a Variable Byte Integer,
     // in this version of the specification all of the Property Identifiers are one byte long.
     context("property value", be_u8)(input).and_then(|(input, property_id)| {
@@ -814,7 +836,7 @@ pub fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
 
 #[cfg(test)]
 mod tests_mqtt {
-    use crate::{connect, mqtt5_property};
+    use crate::{connect, mqtt5_property, parse};
 
     #[test]
     fn test_mqtt5_property() {
@@ -853,7 +875,7 @@ mod tests_mqtt {
             0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // username
             0x00, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
         ];
-        match connect(vec) {
+        match parse(vec) {
             Ok(res) => {
                 println!("{:?}", res);
             }
