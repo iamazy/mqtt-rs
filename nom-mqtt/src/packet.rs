@@ -4,7 +4,6 @@ use crate::reason_code::{
     UnSubscribeReasonCode,
 };
 use std::collections::HashMap;
-use std::num::NonZeroU16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {

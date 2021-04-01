@@ -3,25 +3,15 @@
 extern crate nom;
 
 use crate::bytes::{read_bytes, read_string, read_variable_bytes};
-use crate::packet::{
-    Auth, AuthVariableHeader, ConnAck, ConnAckFlags, ConnAckVariableHeader, Connect, ConnectFlags,
-    ConnectPayload, ConnectVariableHeader, Disconnect, DisconnectVariableHeader, FixedHeader,
-    Mqtt5Property, Packet, PacketType, PingReq, PingResp, PropertyValue, Protocol, PubAck,
-    PubAckVariableHeader, PubComp, PubCompVariableHeader, PubRec, PubRecVariableHeader, PubRel,
-    PubRelVariableHeader, Publish, PublishVariableHeader, Qos, SubAck, SubAckVariableHeader,
-    Subscribe, SubscribeVariableHeader, SubscriptionOptions, UnSubAck, UnSubAckVariableHeader,
-    UnSubscribe, UnSubscribeVariableHeader,
-};
+use crate::packet::{Auth, AuthVariableHeader, ConnAck, ConnAckFlags, ConnAckVariableHeader, Connect, ConnectFlags, ConnectPayload, ConnectVariableHeader, Disconnect, DisconnectVariableHeader, FixedHeader, Mqtt5Property, Packet, PingReq, PingResp, PropertyValue, Protocol, PubAck, PubAckVariableHeader, PubComp, PubCompVariableHeader, PubRec, PubRecVariableHeader, PubRel, PubRelVariableHeader, Publish, PublishVariableHeader, Qos, SubAck, SubAckVariableHeader, Subscribe, SubscribeVariableHeader, SubscriptionOptions, UnSubAck, UnSubAckVariableHeader, UnSubscribe, UnSubscribeVariableHeader};
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::all_consuming;
+use nom::combinator::{all_consuming, verify};
 use nom::error::{context, ErrorKind, VerboseError};
 use nom::number::complete::{be_u16, be_u32, be_u8};
 use nom::sequence::{pair, tuple};
-use nom::{Err as NomErr, InputTake};
+use nom::Err as NomErr;
 use std::collections::HashMap;
-use std::env::var;
-use std::num::NonZeroU16;
 
 type IResult<I, O, E = (I, ErrorKind)> = Result<(I, O), NomErr<E>>;
 type Res<T, U> = IResult<T, U, VerboseError<T>>;
@@ -401,7 +391,7 @@ fn unsuback(input: &[u8]) -> Res<&[u8], Packet> {
     context("unsuback", fixed_header)(input).and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
-        let (mut payload_input, variable_header) =
+        let (payload_input, variable_header) =
             unsuback_variable_header(variable_header_and_payload)?;
         let mut payload = vec![];
         for byte in payload_input {
@@ -471,6 +461,13 @@ fn unsubscribe_variable_header(input: &[u8]) -> Res<&[u8], UnSubscribeVariableHe
 
 fn connect(input: &[u8]) -> Res<&[u8], Packet> {
     context("connect", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+        // if fixed_header.packet_type != PacketType::CONNECT {
+        //     return Err(NomErr::Error(VerboseError {
+        //         errors: vec![
+        //             (input, VerboseErrorKind::Nom(ErrorKind::Verify))
+        //         ]
+        //     }))
+        // }
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload_input, variable_header) =
@@ -497,7 +494,13 @@ fn connect(input: &[u8]) -> Res<&[u8], Packet> {
             password = Some(pwd);
             payload_input = next_payload_input;
         }
-        assert_eq!(payload_input.len(), 0);
+        // if payload_input.len() != 0 {
+        //     return Err(NomErr::Error(VerboseError {
+        //         errors: vec![
+        //             (input, VerboseErrorKind::Nom(ErrorKind::TooLarge))
+        //         ]
+        //     }))
+        // }
         Ok((
             next_input,
             Packet::Connect(Connect {
@@ -567,7 +570,7 @@ fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
         (
             next_input,
             FixedHeader {
-                packet_type: PacketType::from(fixed_header_byte >> 4),
+                packet_type: (fixed_header_byte >> 4).into(),
                 dup: (fixed_header_byte >> 3) & 0x01 == 1,
                 qos: Qos::from((fixed_header_byte >> 1) & 0x03),
                 retain: fixed_header_byte & 0x01 == 1,
@@ -584,7 +587,7 @@ fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
                 property_length,
                 properties: HashMap::new(),
             };
-            let mut property_input = &input[0..property_length];
+            let (next_input, mut property_input) = take(property_length)(input)?;
             let mut subscription_identifiers = vec![];
             let mut user_properties = vec![];
             while property_input.len() > 0 {
@@ -616,7 +619,7 @@ fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
                     .properties
                     .insert(0x26, PropertyValue::Multiple(user_properties));
             }
-            Ok((&input[property_length..], property))
+            Ok((next_input, property))
         },
     )
 }
@@ -836,7 +839,9 @@ fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
 
 #[cfg(test)]
 mod tests_mqtt {
-    use crate::{connect, mqtt5_property, parse};
+    use crate::{mqtt5_property, parse, fixed_header};
+    use nom::combinator::verify;
+    use crate::packet::PacketType;
 
     #[test]
     fn test_mqtt5_property() {
@@ -873,15 +878,18 @@ mod tests_mqtt {
             0x00, 0x04, 'w' as u8, 'i' as u8, 'l' as u8, 'l' as u8, // will topic
             0x00, 0x01, 'p' as u8, // will payload
             0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // username
-            0x00, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+            0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
         ];
-        match parse(vec) {
-            Ok(res) => {
-                println!("{:?}", res);
-            }
-            Err(e) => {
-                eprintln!("{:?}", e);
-            }
-        }
+        // let a = parse(vec)?;
+        let a = verify(fixed_header, |s|s.packet_type == PacketType::CONNECT)(vec);
+        println!("{:?}", a);
+        // match parse(vec) {
+        //     Ok(res) => {
+        //         println!("{:?}", res);
+        //     }
+        //     Err(e) => {
+        //         eprintln!("{:?}", e);
+        //     }
+        // }
     }
 }
