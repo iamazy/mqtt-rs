@@ -1,8 +1,5 @@
 [workspace]
 
 members = [
-  "mqtt-broker",
-  "mqtt-client",
-  "mqtt-core",
   "nom-mqtt"
 ]

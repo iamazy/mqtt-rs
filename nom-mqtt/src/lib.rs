@@ -3,7 +3,15 @@
 extern crate nom;
 
 use crate::bytes::{read_bytes, read_string, read_variable_bytes};
-use crate::packet::{Auth, AuthVariableHeader, ConnAck, ConnAckFlags, ConnAckVariableHeader, Connect, ConnectFlags, ConnectPayload, ConnectVariableHeader, Disconnect, DisconnectVariableHeader, FixedHeader, Mqtt5Property, Packet, PingReq, PingResp, PropertyValue, Protocol, PubAck, PubAckVariableHeader, PubComp, PubCompVariableHeader, PubRec, PubRecVariableHeader, PubRel, PubRelVariableHeader, Publish, PublishVariableHeader, Qos, SubAck, SubAckVariableHeader, Subscribe, SubscribeVariableHeader, SubscriptionOptions, UnSubAck, UnSubAckVariableHeader, UnSubscribe, UnSubscribeVariableHeader};
+use crate::packet::{
+    Auth, AuthVariableHeader, ConnAck, ConnAckFlags, ConnAckVariableHeader, Connect, ConnectFlags,
+    ConnectPayload, ConnectVariableHeader, Disconnect, DisconnectVariableHeader, FixedHeader,
+    Mqtt5Property, Packet, PacketType, PingReq, PingResp, PropertyValue, Protocol, PubAck,
+    PubAckVariableHeader, PubComp, PubCompVariableHeader, PubRec, PubRecVariableHeader, PubRel,
+    PubRelVariableHeader, Publish, PublishVariableHeader, Qos, SubAck, SubAckVariableHeader,
+    Subscribe, SubscribeVariableHeader, SubscriptionOptions, UnSubAck, UnSubAckVariableHeader,
+    UnSubscribe, UnSubscribeVariableHeader,
+};
 use nom::branch::alt;
 use nom::bytes::complete::take;
 use nom::combinator::{all_consuming, verify};
@@ -44,17 +52,24 @@ pub fn parse(input: &[u8]) -> Res<&[u8], Packet> {
 }
 
 fn auth(input: &[u8]) -> Res<&[u8], Packet> {
-    context("auth", pair(fixed_header, auth_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::Auth(Auth {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "auth",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::AUTH
+            }),
+            auth_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::Auth(Auth {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn auth_variable_header(input: &[u8]) -> Res<&[u8], AuthVariableHeader> {
@@ -72,17 +87,24 @@ fn auth_variable_header(input: &[u8]) -> Res<&[u8], AuthVariableHeader> {
 }
 
 fn connack(input: &[u8]) -> Res<&[u8], Packet> {
-    context("connack", pair(fixed_header, connack_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::ConnAck(ConnAck {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "connack",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::CONNACK
+            }),
+            connack_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::ConnAck(ConnAck {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn connack_variable_header(input: &[u8]) -> Res<&[u8], ConnAckVariableHeader> {
@@ -107,17 +129,24 @@ fn connack_variable_header(input: &[u8]) -> Res<&[u8], ConnAckVariableHeader> {
 }
 
 fn disconnect(input: &[u8]) -> Res<&[u8], Packet> {
-    context("disconnect", pair(fixed_header, disconnect_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::Disconnect(Disconnect {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "disconnect",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::DISCONNECT
+            }),
+            disconnect_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::Disconnect(Disconnect {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn disconnect_variable_header(input: &[u8]) -> Res<&[u8], DisconnectVariableHeader> {
@@ -135,27 +164,44 @@ fn disconnect_variable_header(input: &[u8]) -> Res<&[u8], DisconnectVariableHead
 }
 
 fn ping_req(input: &[u8]) -> Res<&[u8], Packet> {
-    context("pingresp", fixed_header)(input)
-        .map(|(next_input, fixed_header)| (next_input, Packet::PingReq(PingReq { fixed_header })))
+    context(
+        "pingresp",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::PINGREQ
+        }),
+    )(input)
+    .map(|(next_input, fixed_header)| (next_input, Packet::PingReq(PingReq { fixed_header })))
 }
 
 fn ping_resp(input: &[u8]) -> Res<&[u8], Packet> {
-    context("pingresp", fixed_header)(input)
-        .map(|(next_input, fixed_header)| (next_input, Packet::PingResp(PingResp { fixed_header })))
+    context(
+        "pingresp",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::PINGRESP
+        }),
+    )(input)
+    .map(|(next_input, fixed_header)| (next_input, Packet::PingResp(PingResp { fixed_header })))
 }
 
 fn puback(input: &[u8]) -> Res<&[u8], Packet> {
-    context("puback", pair(fixed_header, puback_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::PubAck(PubAck {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "puback",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::PUBACK
+            }),
+            puback_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::PubAck(PubAck {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn puback_variable_header(input: &[u8]) -> Res<&[u8], PubAckVariableHeader> {
@@ -176,17 +222,24 @@ fn puback_variable_header(input: &[u8]) -> Res<&[u8], PubAckVariableHeader> {
 }
 
 fn pubcomp(input: &[u8]) -> Res<&[u8], Packet> {
-    context("pubcomp", pair(fixed_header, pubcomp_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::PubComp(PubComp {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "pubcomp",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::PUBCOMP
+            }),
+            pubcomp_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::PubComp(PubComp {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubcomp_variable_header(input: &[u8]) -> Res<&[u8], PubCompVariableHeader> {
@@ -207,7 +260,13 @@ fn pubcomp_variable_header(input: &[u8]) -> Res<&[u8], PubCompVariableHeader> {
 }
 
 fn publish(input: &[u8]) -> Res<&[u8], Packet> {
-    context("publish", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+    context(
+        "publish",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::PUBLISH
+        }),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload, variable_header) = publish_variable_header(variable_header_and_payload)?;
@@ -240,17 +299,24 @@ fn publish_variable_header(input: &[u8]) -> Res<&[u8], PublishVariableHeader> {
 }
 
 fn pubrec(input: &[u8]) -> Res<&[u8], Packet> {
-    context("pubrec", pair(fixed_header, pubrec_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::PubRec(PubRec {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "pubrec",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::PUBREC
+            }),
+            pubrec_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::PubRec(PubRec {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubrec_variable_header(input: &[u8]) -> Res<&[u8], PubRecVariableHeader> {
@@ -271,17 +337,24 @@ fn pubrec_variable_header(input: &[u8]) -> Res<&[u8], PubRecVariableHeader> {
 }
 
 fn pubrel(input: &[u8]) -> Res<&[u8], Packet> {
-    context("pubrel", pair(fixed_header, pubrel_variable_header))(input).map(
-        |(next_input, (fixed_header, variable_header))| {
-            (
-                next_input,
-                Packet::PubRel(PubRel {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        },
-    )
+    context(
+        "pubrel",
+        pair(
+            verify(fixed_header, |fixed_header| {
+                fixed_header.packet_type == PacketType::PUBREL
+            }),
+            pubrel_variable_header,
+        ),
+    )(input)
+    .map(|(next_input, (fixed_header, variable_header))| {
+        (
+            next_input,
+            Packet::PubRel(PubRel {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubrel_variable_header(input: &[u8]) -> Res<&[u8], PubRelVariableHeader> {
@@ -302,7 +375,13 @@ fn pubrel_variable_header(input: &[u8]) -> Res<&[u8], PubRelVariableHeader> {
 }
 
 fn suback(input: &[u8]) -> Res<&[u8], Packet> {
-    context("suback", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+    context(
+        "suback",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::SUBACK
+        }),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload_input, variable_header) = suback_variable_header(variable_header_and_payload)?;
@@ -336,7 +415,13 @@ fn suback_variable_header(input: &[u8]) -> Res<&[u8], SubAckVariableHeader> {
 }
 
 fn subscribe(input: &[u8]) -> Res<&[u8], Packet> {
-    context("subscribe", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+    context(
+        "subscribe",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::SUBSCRIBE
+        }),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (mut payload_input, variable_header) =
@@ -388,7 +473,13 @@ fn subscribe_variable_header(input: &[u8]) -> Res<&[u8], SubscribeVariableHeader
 }
 
 fn unsuback(input: &[u8]) -> Res<&[u8], Packet> {
-    context("unsuback", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+    context(
+        "unsuback",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::UNSUBACK
+        }),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload_input, variable_header) =
@@ -423,7 +514,13 @@ fn unsuback_variable_header(input: &[u8]) -> Res<&[u8], UnSubAckVariableHeader> 
 }
 
 fn unsubscribe(input: &[u8]) -> Res<&[u8], Packet> {
-    context("unsubscribe", fixed_header)(input).and_then(|(next_input, fixed_header)| {
+    context(
+        "unsubscribe",
+        verify(fixed_header, |fixed_header| {
+            fixed_header.packet_type == PacketType::UNSUBSCRIBE
+        }),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (mut payload_input, variable_header) =
@@ -460,14 +557,11 @@ fn unsubscribe_variable_header(input: &[u8]) -> Res<&[u8], UnSubscribeVariableHe
 }
 
 fn connect(input: &[u8]) -> Res<&[u8], Packet> {
-    context("connect", fixed_header)(input).and_then(|(next_input, fixed_header)| {
-        // if fixed_header.packet_type != PacketType::CONNECT {
-        //     return Err(NomErr::Error(VerboseError {
-        //         errors: vec![
-        //             (input, VerboseErrorKind::Nom(ErrorKind::Verify))
-        //         ]
-        //     }))
-        // }
+    context(
+        "connect",
+        verify(fixed_header, |s| s.packet_type == PacketType::CONNECT),
+    )(input)
+    .and_then(|(next_input, fixed_header)| {
         let (next_input, variable_header_and_payload) =
             take(fixed_header.remaining_length)(next_input)?;
         let (payload_input, variable_header) =
@@ -494,13 +588,6 @@ fn connect(input: &[u8]) -> Res<&[u8], Packet> {
             password = Some(pwd);
             payload_input = next_payload_input;
         }
-        // if payload_input.len() != 0 {
-        //     return Err(NomErr::Error(VerboseError {
-        //         errors: vec![
-        //             (input, VerboseErrorKind::Nom(ErrorKind::TooLarge))
-        //         ]
-        //     }))
-        // }
         Ok((
             next_input,
             Packet::Connect(Connect {
@@ -624,26 +711,6 @@ fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
     )
 }
 
-/// # Equivalent to the following way of using macros
-/// ```
-/// #[macro_use]
-/// extern crate nom;
-/// use nom_mqtt::packet::PropertyValue;
-///
-/// named!(property_value<&[u8], (usize, usize, PropertyValue)>,
-///     switch!(read_variable_bytes,
-///         (0x01, res) => do_parse!(
-///             payload_format_indicator: be_u8 >>
-///             (0x01, res + 1, PropertyValue::Bit(payload_format_indicator & 0x01 == 1))
-///         ) |
-///         (0x02, res) => do_parse!(
-///             message_expiry_interval: be_u32 >>
-///             (0x02, res + 4, PropertyValue::FourByteInteger(message_expiry_interval))
-///         ) |
-///         ...
-///     )
-/// );
-/// ```
 fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
     // Although the Property Identifier is defined as a Variable Byte Integer,
     // in this version of the specification all of the Property Identifiers are one byte long.
@@ -839,9 +906,7 @@ fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
 
 #[cfg(test)]
 mod tests_mqtt {
-    use crate::{mqtt5_property, parse, fixed_header};
-    use nom::combinator::verify;
-    use crate::packet::PacketType;
+    use crate::{connect, mqtt5_property, parse};
 
     #[test]
     fn test_mqtt5_property() {
@@ -867,7 +932,7 @@ mod tests_mqtt {
     #[test]
     fn test_connect() {
         let vec = &[
-            0b0001_0000u8, 52, // fixed header
+            0b0000_0000u8, 52, // fixed header
             0x00, 0x04, 'M' as u8, 'Q' as u8, 'T' as u8, 'T' as u8,     // protocol name
             0x05,          // protocol version
             0b1100_1110u8, // connect flag
@@ -878,18 +943,15 @@ mod tests_mqtt {
             0x00, 0x04, 'w' as u8, 'i' as u8, 'l' as u8, 'l' as u8, // will topic
             0x00, 0x01, 'p' as u8, // will payload
             0x00, 0x06, 'i' as u8, 'a' as u8, 'm' as u8, 'a' as u8, 'z' as u8, 'y' as u8, // username
-            0x00, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+            0x00, 0x06, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
         ];
-        // let a = parse(vec)?;
-        let a = verify(fixed_header, |s|s.packet_type == PacketType::CONNECT)(vec);
-        println!("{:?}", a);
-        // match parse(vec) {
-        //     Ok(res) => {
-        //         println!("{:?}", res);
-        //     }
-        //     Err(e) => {
-        //         eprintln!("{:?}", e);
-        //     }
-        // }
+        match parse(vec) {
+            Ok(res) => {
+                println!("{:?}", res);
+            }
+            Err(e) => {
+                eprintln!("{:?}", e);
+            }
+        }
     }
 }
