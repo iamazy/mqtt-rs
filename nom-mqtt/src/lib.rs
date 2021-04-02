@@ -14,13 +14,13 @@ use crate::packet::{
 };
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{all_consuming, cond, verify, flat_map};
+use nom::combinator::{all_consuming, cond, flat_map, verify};
 use nom::error::{context, ErrorKind, ParseError, VerboseError};
+use nom::multi::{fold_many1, many0, many1};
 use nom::number::complete::{be_u16, be_u32, be_u8};
 use nom::sequence::{pair, tuple};
 use nom::{Err as NomErr, InputIter, InputTake, Parser};
 use std::collections::HashMap;
-use nom::multi::{many0, fold_many0};
 
 type IResult<I, O, E = (I, ErrorKind)> = Result<(I, O), NomErr<E>>;
 type Res<T, U> = IResult<T, U, VerboseError<T>>;
@@ -65,15 +65,15 @@ fn auth(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::Auth(Auth {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::Auth(Auth {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn auth_variable_header(input: &[u8]) -> Res<&[u8], AuthVariableHeader> {
@@ -103,15 +103,15 @@ fn connack(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::ConnAck(ConnAck {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::ConnAck(ConnAck {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn connack_variable_header(input: &[u8]) -> Res<&[u8], ConnAckVariableHeader> {
@@ -119,19 +119,19 @@ fn connack_variable_header(input: &[u8]) -> Res<&[u8], ConnAckVariableHeader> {
         "connack variable header",
         tuple((be_u8, be_u8, mqtt5_property)),
     )(input)
-        .map(|(next_input, (flag, reason_code, connack_property))| {
-            (
-                next_input,
-                ConnAckVariableHeader {
-                    connack_flags: ConnAckFlags {
-                        // fault tolerance
-                        session_present: (flag & 0b1111_1111) > 1,
-                    },
-                    connect_reason_code: reason_code.into(),
-                    connack_property,
+    .map(|(next_input, (flag, reason_code, connack_property))| {
+        (
+            next_input,
+            ConnAckVariableHeader {
+                connack_flags: ConnAckFlags {
+                    // fault tolerance
+                    session_present: (flag & 0b1111_1111) > 1,
                 },
-            )
-        })
+                connect_reason_code: reason_code.into(),
+                connack_property,
+            },
+        )
+    })
 }
 
 fn disconnect(input: &[u8]) -> Res<&[u8], Packet> {
@@ -147,15 +147,15 @@ fn disconnect(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::Disconnect(Disconnect {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::Disconnect(Disconnect {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn disconnect_variable_header(input: &[u8]) -> Res<&[u8], DisconnectVariableHeader> {
@@ -179,7 +179,7 @@ fn ping_req(input: &[u8]) -> Res<&[u8], Packet> {
             fixed_header.packet_type == PacketType::PINGREQ
         }),
     )(input)
-        .map(|(next_input, fixed_header)| (next_input, Packet::PingReq(PingReq { fixed_header })))
+    .map(|(next_input, fixed_header)| (next_input, Packet::PingReq(PingReq { fixed_header })))
 }
 
 fn ping_resp(input: &[u8]) -> Res<&[u8], Packet> {
@@ -189,7 +189,7 @@ fn ping_resp(input: &[u8]) -> Res<&[u8], Packet> {
             fixed_header.packet_type == PacketType::PINGRESP
         }),
     )(input)
-        .map(|(next_input, fixed_header)| (next_input, Packet::PingResp(PingResp { fixed_header })))
+    .map(|(next_input, fixed_header)| (next_input, Packet::PingResp(PingResp { fixed_header })))
 }
 
 fn puback(input: &[u8]) -> Res<&[u8], Packet> {
@@ -205,15 +205,15 @@ fn puback(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::PubAck(PubAck {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::PubAck(PubAck {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn puback_variable_header(input: &[u8]) -> Res<&[u8], PubAckVariableHeader> {
@@ -221,16 +221,16 @@ fn puback_variable_header(input: &[u8]) -> Res<&[u8], PubAckVariableHeader> {
         "puback variable header",
         tuple((be_u16, be_u8, mqtt5_property)),
     )(input)
-        .map(|(next_input, (packet_id, reason_code, puback_property))| {
-            (
-                next_input,
-                PubAckVariableHeader {
-                    packet_id,
-                    puback_reason_code: reason_code.into(),
-                    puback_property,
-                },
-            )
-        })
+    .map(|(next_input, (packet_id, reason_code, puback_property))| {
+        (
+            next_input,
+            PubAckVariableHeader {
+                packet_id,
+                puback_reason_code: reason_code.into(),
+                puback_property,
+            },
+        )
+    })
 }
 
 fn pubcomp(input: &[u8]) -> Res<&[u8], Packet> {
@@ -246,15 +246,15 @@ fn pubcomp(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::PubComp(PubComp {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::PubComp(PubComp {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubcomp_variable_header(input: &[u8]) -> Res<&[u8], PubCompVariableHeader> {
@@ -262,16 +262,16 @@ fn pubcomp_variable_header(input: &[u8]) -> Res<&[u8], PubCompVariableHeader> {
         "pubcomp variable header",
         tuple((be_u16, be_u8, mqtt5_property)),
     )(input)
-        .map(|(next_input, (packet_id, reason_code, pubcomp_property))| {
-            (
-                next_input,
-                PubCompVariableHeader {
-                    packet_id,
-                    pubcomp_reason_code: reason_code.into(),
-                    pubcomp_property,
-                },
-            )
-        })
+    .map(|(next_input, (packet_id, reason_code, pubcomp_property))| {
+        (
+            next_input,
+            PubCompVariableHeader {
+                packet_id,
+                pubcomp_reason_code: reason_code.into(),
+                pubcomp_property,
+            },
+        )
+    })
 }
 
 fn publish(input: &[u8]) -> Res<&[u8], Packet> {
@@ -287,16 +287,16 @@ fn publish(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, payload))| {
-            (
-                next_input,
-                Packet::Publish(Publish {
-                    fixed_header,
-                    variable_header,
-                    payload,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, payload))| {
+        (
+            next_input,
+            Packet::Publish(Publish {
+                fixed_header,
+                variable_header,
+                payload,
+            }),
+        )
+    })
 }
 
 fn publish_variable_header(input: &[u8]) -> Res<&[u8], PublishVariableHeader> {
@@ -304,16 +304,16 @@ fn publish_variable_header(input: &[u8]) -> Res<&[u8], PublishVariableHeader> {
         "publish variable header",
         tuple((read_string, be_u16, mqtt5_property)),
     )(input)
-        .map(|(next_input, (topic_name, packet_id, publish_property))| {
-            (
-                next_input,
-                PublishVariableHeader {
-                    topic_name,
-                    packet_id,
-                    publish_property,
-                },
-            )
-        })
+    .map(|(next_input, (topic_name, packet_id, publish_property))| {
+        (
+            next_input,
+            PublishVariableHeader {
+                topic_name,
+                packet_id,
+                publish_property,
+            },
+        )
+    })
 }
 
 fn pubrec(input: &[u8]) -> Res<&[u8], Packet> {
@@ -329,15 +329,15 @@ fn pubrec(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::PubRec(PubRec {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::PubRec(PubRec {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubrec_variable_header(input: &[u8]) -> Res<&[u8], PubRecVariableHeader> {
@@ -345,16 +345,16 @@ fn pubrec_variable_header(input: &[u8]) -> Res<&[u8], PubRecVariableHeader> {
         "pubrec variable header",
         tuple((be_u16, be_u8, mqtt5_property)),
     )(input)
-        .map(|(next_input, (packet_id, reason_code, pubrec_property))| {
-            (
-                next_input,
-                PubRecVariableHeader {
-                    packet_id,
-                    pubrec_reason_code: reason_code.into(),
-                    pubrec_property,
-                },
-            )
-        })
+    .map(|(next_input, (packet_id, reason_code, pubrec_property))| {
+        (
+            next_input,
+            PubRecVariableHeader {
+                packet_id,
+                pubrec_reason_code: reason_code.into(),
+                pubrec_property,
+            },
+        )
+    })
 }
 
 fn pubrel(input: &[u8]) -> Res<&[u8], Packet> {
@@ -370,15 +370,15 @@ fn pubrel(input: &[u8]) -> Res<&[u8], Packet> {
             |(_, _, payload)| payload.len() == 0,
         ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, _))| {
-            (
-                next_input,
-                Packet::PubRel(PubRel {
-                    fixed_header,
-                    variable_header,
-                }),
-            )
-        })
+    .map(|(next_input, (fixed_header, variable_header, _))| {
+        (
+            next_input,
+            Packet::PubRel(PubRel {
+                fixed_header,
+                variable_header,
+            }),
+        )
+    })
 }
 
 fn pubrel_variable_header(input: &[u8]) -> Res<&[u8], PubRelVariableHeader> {
@@ -386,40 +386,42 @@ fn pubrel_variable_header(input: &[u8]) -> Res<&[u8], PubRelVariableHeader> {
         "pubrel variable header",
         tuple((be_u16, be_u8, mqtt5_property)),
     )(input)
-        .map(|(next_input, (packet_id, reason_code, pubrel_property))| {
-            (
-                next_input,
-                PubRelVariableHeader {
-                    packet_id,
-                    pubrel_reason_code: reason_code.into(),
-                    pubrel_property,
-                },
-            )
-        })
+    .map(|(next_input, (packet_id, reason_code, pubrel_property))| {
+        (
+            next_input,
+            PubRelVariableHeader {
+                packet_id,
+                pubrel_reason_code: reason_code.into(),
+                pubrel_property,
+            },
+        )
+    })
 }
 
 fn suback(input: &[u8]) -> Res<&[u8], Packet> {
     context(
         "suback",
-        flat_map(map_fixed_header(
+        map_fixed_header(
             verify(fixed_header, |fixed_header| {
                 fixed_header.packet_type == PacketType::SUBACK
-            }), suback_variable_header, ),
-                 |(fixed_header, variable_header, payloads)|
-                     fold_many0(be_u8, (fixed_header, variable_header, Vec::with_capacity(payloads.len())), |(f, v, mut acc), item| {
-                         acc.push(item.into());
-                         (f, v, acc)
-                     })),
+            }),
+            suback_variable_header,
+        ),
     )(input)
-        .map(|(next_input, (fixed_header, variable_header, payload))| {
-            (
+        .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+            let (_, payload) = fold_many1(be_u8, Vec::with_capacity(payloads.len()),
+                |mut acc, item| {
+                    acc.push(item.into());
+                    acc
+                })(payloads)?;
+            Ok((
                 next_input,
                 Packet::SubAck(SubAck {
                     fixed_header,
                     variable_header,
                     payload,
                 }),
-            )
+            ))
         })
 }
 
@@ -447,19 +449,17 @@ fn subscribe(input: &[u8]) -> Res<&[u8], Packet> {
             subscribe_variable_header,
         ),
     )(input)
-        .and_then(
-            |(next_input, (fixed_header, variable_header, payloads))| {
-                let (_, payload) = many0(pair(read_string, subscription_options))(payloads)?;
-                Ok((
-                    next_input,
-                    Packet::Subscribe(Subscribe {
-                        fixed_header,
-                        variable_header,
-                        payload,
-                    }),
-                ))
-            },
-        )
+    .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+        let (_, payload) = many0(pair(read_string, subscription_options))(payloads)?;
+        Ok((
+            next_input,
+            Packet::Subscribe(Subscribe {
+                fixed_header,
+                variable_header,
+                payload,
+            }),
+        ))
+    })
 }
 
 fn subscription_options(input: &[u8]) -> Res<&[u8], SubscriptionOptions> {
@@ -500,20 +500,24 @@ fn unsuback(input: &[u8]) -> Res<&[u8], Packet> {
             unsuback_variable_header,
         ),
     )(input)
-        .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
-            let (_, payload) = fold_many0(be_u8, Vec::with_capacity(payloads.len()), |mut acc, item| {
+    .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+        let (_, payload) = fold_many1(
+            be_u8,
+            Vec::with_capacity(payloads.len()),
+            |mut acc, item| {
                 acc.push(item.into());
                 acc
-            })(payloads)?;
-            Ok((
-                next_input,
-                Packet::UnSubAck(UnSubAck {
-                    fixed_header,
-                    variable_header,
-                    payload,
-                }),
-            ))
-        })
+            },
+        )(payloads)?;
+        Ok((
+            next_input,
+            Packet::UnSubAck(UnSubAck {
+                fixed_header,
+                variable_header,
+                payload,
+            }),
+        ))
+    })
 }
 
 fn unsuback_variable_header(input: &[u8]) -> Res<&[u8], UnSubAckVariableHeader> {
@@ -540,19 +544,17 @@ fn unsubscribe(input: &[u8]) -> Res<&[u8], Packet> {
             unsubscribe_variable_header,
         ),
     )(input)
-        .and_then(
-            |(next_input, (fixed_header, variable_header, payloads))| {
-                let (_, payload) = many0(read_string)(payloads)?;
-                Ok((
-                    next_input,
-                    Packet::UnSubscribe(UnSubscribe {
-                        fixed_header,
-                        variable_header,
-                        payload,
-                    }),
-                ))
-            },
-        )
+    .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+        let (_, payload) = many0(read_string)(payloads)?;
+        Ok((
+            next_input,
+            Packet::UnSubscribe(UnSubscribe {
+                fixed_header,
+                variable_header,
+                payload,
+            }),
+        ))
+    })
 }
 
 fn unsubscribe_variable_header(input: &[u8]) -> Res<&[u8], UnSubscribeVariableHeader> {
@@ -577,35 +579,38 @@ fn connect(input: &[u8]) -> Res<&[u8], Packet> {
             connect_variable_header,
         ),
     )(input)
-        .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
-            let (payloads, client_id) = read_string(payloads)?;
-            let (payloads, (will_property, will_topic, will_payload)) =
-                match cond(variable_header.connect_flags.will_flag, tuple((mqtt5_property, read_string, read_bytes)))(payloads)? {
-                    (payloads, Some((property, topic, payload))) => {
-                        (payloads, (Some(property), Some(topic), Some(payload)))
-                    }
-                    (payloads, None) => (payloads, (None, None, None)),
-                };
-            let (_, (username, password)) = pair(
-                cond(variable_header.connect_flags.username_flag, read_string),
-                cond(variable_header.connect_flags.password_flag, read_string),
-            )(payloads)?;
-            Ok((
-                next_input,
-                Packet::Connect(Connect {
-                    fixed_header,
-                    variable_header,
-                    payload: ConnectPayload {
-                        client_id,
-                        will_property,
-                        will_topic,
-                        will_payload,
-                        username,
-                        password,
-                    },
-                }),
-            ))
-        })
+    .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+        let (payloads, client_id) = read_string(payloads)?;
+        let (payloads, (will_property, will_topic, will_payload)) = match cond(
+            variable_header.connect_flags.will_flag,
+            tuple((mqtt5_property, read_string, read_bytes)),
+        )(payloads)?
+        {
+            (payloads, Some((property, topic, payload))) => {
+                (payloads, (Some(property), Some(topic), Some(payload)))
+            }
+            (payloads, None) => (payloads, (None, None, None)),
+        };
+        let (_, (username, password)) = pair(
+            cond(variable_header.connect_flags.username_flag, read_string),
+            cond(variable_header.connect_flags.password_flag, read_string),
+        )(payloads)?;
+        Ok((
+            next_input,
+            Packet::Connect(Connect {
+                fixed_header,
+                variable_header,
+                payload: ConnectPayload {
+                    client_id,
+                    will_property,
+                    will_topic,
+                    will_payload,
+                    username,
+                    password,
+                },
+            }),
+        ))
+    })
 }
 
 fn connect_flag(input: &[u8]) -> Res<&[u8], ConnectFlags> {
@@ -629,19 +634,19 @@ fn connect_variable_header(input: &[u8]) -> Res<&[u8], ConnectVariableHeader> {
         "connect variable header",
         tuple((protocol, connect_flag, be_u16, mqtt5_property)),
     )(input)
-        .map(
-            |(next_input, (protocol, connect_flags, keep_alive, connect_property))| {
-                (
-                    next_input,
-                    ConnectVariableHeader {
-                        protocol,
-                        connect_flags,
-                        keep_alive,
-                        connect_property,
-                    },
-                )
-            },
-        )
+    .map(
+        |(next_input, (protocol, connect_flags, keep_alive, connect_property))| {
+            (
+                next_input,
+                ConnectVariableHeader {
+                    protocol,
+                    connect_flags,
+                    keep_alive,
+                    connect_property,
+                },
+            )
+        },
+    )
 }
 
 fn protocol(input: &[u8]) -> Res<&[u8], Protocol> {
@@ -657,9 +662,9 @@ pub fn map_fixed_header<I: Clone + InputIter + InputTake, O, E: ParseError<I>, F
     mut first: F,
     mut second: G,
 ) -> impl FnMut(I) -> IResult<I, (FixedHeader, O, I), E>
-    where
-        F: Parser<I, FixedHeader, E>,
-        G: Parser<I, O, E>,
+where
+    F: Parser<I, FixedHeader, E>,
+    G: Parser<I, O, E>,
 {
     move |input: I| {
         let (input, fixed_header) = first.parse(input)?;
@@ -670,18 +675,20 @@ pub fn map_fixed_header<I: Clone + InputIter + InputTake, O, E: ParseError<I>, F
 }
 
 fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
-    context("fixed header", pair(be_u8, read_variable_bytes))(input).map(|(next_input, (fixed_header_byte, (remaining_length, _)))| {
-        (
-            next_input,
-            FixedHeader {
-                packet_type: (fixed_header_byte >> 4).into(),
-                dup: (fixed_header_byte >> 3) & 0x01 == 1,
-                qos: Qos::from((fixed_header_byte >> 1) & 0x03),
-                retain: fixed_header_byte & 0x01 == 1,
-                remaining_length,
-            },
-        )
-    })
+    context("fixed header", pair(be_u8, read_variable_bytes))(input).map(
+        |(next_input, (fixed_header_byte, (remaining_length, _)))| {
+            (
+                next_input,
+                FixedHeader {
+                    packet_type: (fixed_header_byte >> 4).into(),
+                    dup: (fixed_header_byte >> 3) & 0x01 == 1,
+                    qos: Qos::from((fixed_header_byte >> 1) & 0x03),
+                    retain: fixed_header_byte & 0x01 == 1,
+                    remaining_length,
+                },
+            )
+        },
+    )
 }
 
 fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
