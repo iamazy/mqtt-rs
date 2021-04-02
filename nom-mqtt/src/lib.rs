@@ -16,7 +16,7 @@ use nom::branch::alt;
 use nom::bytes::complete::take;
 use nom::combinator::{all_consuming, cond, flat_map, verify};
 use nom::error::{context, ErrorKind, ParseError, VerboseError};
-use nom::multi::{fold_many1, many0, many1};
+use nom::multi::{fold_many1, many1};
 use nom::number::complete::{be_u16, be_u32, be_u8};
 use nom::sequence::{pair, tuple};
 use nom::{Err as NomErr, InputIter, InputTake, Parser};
@@ -453,7 +453,7 @@ fn subscribe(input: &[u8]) -> Res<&[u8], Packet> {
         ),
     )(input)
     .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
-        let (_, payload) = many0(pair(read_string, subscription_options))(payloads)?;
+        let (_, payload) = many1(pair(read_string, subscription_options))(payloads)?;
         Ok((
             next_input,
             Packet::Subscribe(Subscribe {
@@ -548,7 +548,7 @@ fn unsubscribe(input: &[u8]) -> Res<&[u8], Packet> {
         ),
     )(input)
     .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
-        let (_, payload) = many0(read_string)(payloads)?;
+        let (_, payload) = many1(read_string)(payloads)?;
         Ok((
             next_input,
             Packet::UnSubscribe(UnSubscribe {
