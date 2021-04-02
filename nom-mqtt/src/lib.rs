@@ -408,21 +408,24 @@ fn suback(input: &[u8]) -> Res<&[u8], Packet> {
             suback_variable_header,
         ),
     )(input)
-        .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
-            let (_, payload) = fold_many1(be_u8, Vec::with_capacity(payloads.len()),
-                |mut acc, item| {
-                    acc.push(item.into());
-                    acc
-                })(payloads)?;
-            Ok((
-                next_input,
-                Packet::SubAck(SubAck {
-                    fixed_header,
-                    variable_header,
-                    payload,
-                }),
-            ))
-        })
+    .and_then(|(next_input, (fixed_header, variable_header, payloads))| {
+        let (_, payload) = fold_many1(
+            be_u8,
+            Vec::with_capacity(payloads.len()),
+            |mut acc, item| {
+                acc.push(item.into());
+                acc
+            },
+        )(payloads)?;
+        Ok((
+            next_input,
+            Packet::SubAck(SubAck {
+                fixed_header,
+                variable_header,
+                payload,
+            }),
+        ))
+    })
 }
 
 fn suback_variable_header(input: &[u8]) -> Res<&[u8], SubAckVariableHeader> {
@@ -929,6 +932,7 @@ fn property_value(input: &[u8]) -> Res<&[u8], (usize, PropertyValue)> {
 }
 
 #[cfg(test)]
+#[rustfmt::skip]
 mod tests_mqtt {
     use crate::{mqtt5_property, parse};
 
