@@ -14,7 +14,7 @@ use crate::packet::{
 };
 use nom::branch::alt;
 use nom::bytes::complete::take;
-use nom::combinator::{all_consuming, cond, flat_map, verify};
+use nom::combinator::{all_consuming, cond, verify};
 use nom::error::{context, ErrorKind, ParseError, VerboseError};
 use nom::multi::{fold_many1, many1};
 use nom::number::complete::{be_u16, be_u32, be_u8};
@@ -697,43 +697,36 @@ fn fixed_header(input: &[u8]) -> Res<&[u8], FixedHeader> {
 fn mqtt5_property(input: &[u8]) -> Res<&[u8], Mqtt5Property> {
     context("mqtt5 property", read_variable_bytes)(input).and_then(
         |(input, (property_length, _))| {
-            let mut property = Mqtt5Property {
-                property_length,
-                properties: HashMap::new(),
-            };
-            let (next_input, mut property_input) = take(property_length)(input)?;
-            let mut subscription_identifiers = vec![];
-            let mut user_properties = vec![];
-            while property_input.len() > 0 {
-                match property_value(property_input) {
-                    Ok((next_input, (property_id, property_value))) => {
+            let (next_input, property_input) = take(property_length)(input)?;
+            let (_, (mut properties, subscription_identifiers, user_properties)) =
+                fold_many1(
+                    property_value,
+                    (HashMap::new(), Vec::new(), Vec::new()),
+                    |(mut properties, mut subscription_identifiers, mut user_properties),
+                     (property_id, property_value)| {
                         if property_id == 0x0B {
                             subscription_identifiers.push(property_value);
                         } else if property_id == 0x26 {
                             user_properties.push(property_value);
                         } else {
-                            property
-                                .properties
-                                .insert(property_id as u32, property_value);
+                            properties.insert(property_id as u32, property_value);
                         }
-                        property_input = next_input;
-                    }
-                    Err(e) => {
-                        eprintln!("{}", e);
-                    }
-                }
-            }
+                        (properties, subscription_identifiers, user_properties)
+                    },
+                )(property_input)?;
             if subscription_identifiers.len() > 0 {
-                property
-                    .properties
-                    .insert(0x0B, PropertyValue::Multiple(subscription_identifiers));
+                properties.insert(0x0B, PropertyValue::Multiple(subscription_identifiers));
             }
             if user_properties.len() > 0 {
-                property
-                    .properties
-                    .insert(0x26, PropertyValue::Multiple(user_properties));
+                properties.insert(0x26, PropertyValue::Multiple(user_properties));
             }
-            Ok((next_input, property))
+            Ok((
+                next_input,
+                Mqtt5Property {
+                    property_length,
+                    properties,
+                },
+            ))
         },
     )
 }
